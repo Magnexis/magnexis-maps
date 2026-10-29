@@ -35,7 +35,7 @@ jobs:
       ASC_API_KEY_P8: ${{ secrets.ASC_API_KEY_P8 }}
     steps:
       - uses: actions/checkout@v4
-      - name: Select Xcode 26 and install the iOS device platform
+      - name: Select Xcode 26 and ensure the iOS device SDK
         run: |
           set -euo pipefail
           echo "Available Xcode apps:"
@@ -53,44 +53,29 @@ jobs:
           sudo xcode-select -s "${XCODE_APP}/Contents/Developer"
           xcodebuild -runFirstLaunch || true
           xcodebuild -version
-          echo "Installed Platforms:"
-          ls "$(xcode-select -p)/Platforms" 2>/dev/null || true
           xcodebuild -showsdks || true
           # Warm CoreSimulator before -downloadPlatform; otherwise GH runners often fail with
           # "Unable to connect to simulator" (exit 70). See actions/runner-images#12862 / #13459.
           xcrun simctl list >/dev/null 2>&1 || true
-          device_platform_ready() {
-            # Ready when Any iOS Device is listed without the "iOS X is not installed" error suffix.
-            local lines
-            lines="$(xcodebuild -showdestinations -scheme App -project apps/iphone/ios/App/App.xcodeproj 2>/dev/null || true)"
-            echo "$lines" | grep 'name:Any iOS Device' | grep -v 'error:' | grep -q .
-          }
-          if device_platform_ready; then
-            echo "iOS device platform already usable for archive."
+          # Do not probe destinations against the Xcode project here: SPM/Capacitor packages
+          # live under node_modules and are not installed yet. "already downloaded" is success.
+          echo "Ensuring iOS device platform is present..."
+          DOWNLOAD_LOG="$(mktemp)"
+          if xcodebuild -downloadPlatform iOS >"$DOWNLOAD_LOG" 2>&1; then
+            cat "$DOWNLOAD_LOG"
           else
-            echo "iOS device platform missing or incomplete; downloading..."
-            ready=0
-            for attempt in 1 2 3; do
-              echo "downloadPlatform attempt ${attempt}"
-              xcrun simctl list >/dev/null 2>&1 || true
-              xcodebuild -downloadPlatform iOS || true
-              xcodebuild -runFirstLaunch || true
-              sleep 5
-              if device_platform_ready; then
-                ready=1
-                break
-              fi
-            done
-            if [ "${ready}" -ne 1 ]; then
-              echo "Failed to install a usable iOS device platform."
-              xcodebuild -showdestinations -scheme App -project apps/iphone/ios/App/App.xcodeproj || true
+            cat "$DOWNLOAD_LOG"
+            if grep -Eqi 'already downloaded|is already installed' "$DOWNLOAD_LOG"; then
+              echo "iOS platform already present; continuing."
+            else
+              echo "xcodebuild -downloadPlatform iOS failed."
               exit 1
             fi
-            echo "iOS device platform ready after download."
           fi
-          xcrun --show-sdk-version --sdk iphoneos
-          xcodebuild -showdestinations -scheme App -project apps/iphone/ios/App/App.xcodeproj 2>/dev/null \
-            | grep -E 'platform:iOS|Any iOS Device|error:' || true
+          SDK_PATH="$(xcrun --sdk iphoneos --show-sdk-path)"
+          SDK_VERSION="$(xcrun --sdk iphoneos --show-sdk-version)"
+          test -d "$SDK_PATH"
+          echo "iphoneos SDK ${SDK_VERSION} at ${SDK_PATH}"
       - name: Verify signing prerequisites without printing credentials
         shell: bash
         run: |
@@ -119,6 +104,13 @@ jobs:
           set -euo pipefail
           xcodebuild -version
           echo "Using code sign identity: ${MAPS_CODE_SIGN_IDENTITY:?signing identity was not detected}"
+          # Destinations are only meaningful after pnpm install + Capacitor sync (local SPM packages).
+          DEST_LOG="$(xcodebuild -showdestinations -scheme App -project apps/iphone/ios/App/App.xcodeproj 2>&1 || true)"
+          echo "$DEST_LOG" | grep -E 'platform:iOS|Any iOS Device|error:' || true
+          if echo "$DEST_LOG" | grep 'name:Any iOS Device' | grep -q 'error:'; then
+            echo "iOS device destination still reports an error after SDK install."
+            exit 1
+          fi
           xcodebuild -showBuildSettings -project apps/iphone/ios/App/App.xcodeproj -scheme App -configuration Release \
             DEVELOPMENT_TEAM="$IOS_TEAM_ID" CODE_SIGN_STYLE=Manual \
             | grep -E 'PRODUCT_BUNDLE_IDENTIFIER|MARKETING_VERSION|IPHONEOS_DEPLOYMENT_TARGET|SDKROOT' || true
