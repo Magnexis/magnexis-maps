@@ -1,13 +1,10 @@
-name: iPhone build and TestFlight
+name: iPhone simulator
+
+# Simulator CI only. TestFlight upload lives in iphone-testflight.yml so push
+# runs never show a skipped "testflight" job.
 
 on:
   workflow_dispatch:
-    inputs:
-      distribution:
-        description: Build a simulator app or sign and upload to TestFlight
-        type: choice
-        options: [simulator, testflight]
-        default: simulator
   push:
     branches: [main]
     paths:
@@ -23,7 +20,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: iphone-${{ github.ref }}-${{ inputs.distribution || 'simulator' }}
+  group: iphone-simulator-${{ github.ref }}
   cancel-in-progress: true
 
 env:
@@ -34,7 +31,6 @@ env:
 
 jobs:
   simulator:
-    if: github.event_name != 'workflow_dispatch' || inputs.distribution == 'simulator' || inputs.distribution == 'testflight'
     # macos-15 has broader hosted capacity than macos-26 (which often sits queued).
     runs-on: macos-15
     timeout-minutes: 30
@@ -76,168 +72,3 @@ jobs:
           name: iphone-simulator-${{ github.run_number }}
           path: artifacts/
           retention-days: 7
-      - uses: actions/upload-artifact@v4
-        with:
-          name: iphone-web-bundle
-          path: apps/iphone/www/
-          retention-days: 3
-
-  # Signs a real App Store IPA (iphoneos Release archive) and uploads to App Store Connect.
-  # Requires the protected `app-store` GitHub Environment secrets documented in docs/iphone-github-actions.md.
-  testflight:
-    if: github.event_name == 'workflow_dispatch' && inputs.distribution == 'testflight'
-    needs: simulator
-    # App Store Connect requires the iOS 26 SDK (Xcode 26+). macos-15 ships older SDKs.
-    runs-on: macos-26
-    # Platform download + archive + ASC upload routinely exceeds 45m on cold runners.
-    timeout-minutes: 75
-    environment: app-store
-    env:
-      IOS_TEAM_ID: ${{ vars.IOS_TEAM_ID }}
-      IOS_CERTIFICATE_P12: ${{ secrets.IOS_CERTIFICATE_P12 }}
-      IOS_CERTIFICATE_PASSWORD: ${{ secrets.IOS_CERTIFICATE_PASSWORD }}
-      IOS_PROVISIONING_PROFILE: ${{ secrets.IOS_PROVISIONING_PROFILE }}
-      ASC_API_KEY_ID: ${{ secrets.ASC_API_KEY_ID }}
-      ASC_API_ISSUER_ID: ${{ secrets.ASC_API_ISSUER_ID }}
-      ASC_API_KEY_P8: ${{ secrets.ASC_API_KEY_P8 }}
-    steps:
-      - uses: actions/checkout@v4
-      - name: Select Xcode 26 and install the iOS device platform
-        run: |
-          set -euo pipefail
-          echo "Available Xcode apps:"
-          ls -d /Applications/Xcode*.app 2>/dev/null || true
-          # Glob order picks Xcode_26.0.1 first; prefer the newest 26.x on the image.
-          XCODE_APP="$(ls -d /Applications/Xcode_26*.app 2>/dev/null | sort -V | tail -n 1 || true)"
-          if [ -z "${XCODE_APP}" ] && [ -d /Applications/Xcode.app ]; then
-            XCODE_APP=/Applications/Xcode.app
-          fi
-          if [ -z "${XCODE_APP}" ]; then
-            echo "No Xcode 26+ install found on this runner."
-            exit 1
-          fi
-          sudo xcode-select -s "$XCODE_APP/Contents/Developer"
-          xcodebuild -runFirstLaunch || true
-          xcodebuild -version
-          echo "Installed Platforms:"
-          ls "$(xcode-select -p)/Platforms" 2>/dev/null || true
-          xcodebuild -showsdks || true
-          # Warm CoreSimulator before -downloadPlatform; otherwise GH runners often fail with
-          # "Unable to connect to simulator" (exit 70). See actions/runner-images#12862 / #13459.
-          xcrun simctl list >/dev/null 2>&1 || true
-          device_platform_ready() {
-            # Ready when Any iOS Device is listed without the "iOS X is not installed" error suffix.
-            xcodebuild -showdestinations -scheme App -project apps/iphone/ios/App/App.xcodeproj 2>/dev/null \
-              | grep 'name:Any iOS Device' | grep -vq 'error:'
-          }
-          if device_platform_ready; then
-            echo "iOS device platform already usable for archive."
-          else
-            echo "iOS device platform missing or incomplete; downloading…"
-            attempt=1
-            until device_platform_ready; do
-              if [ "$attempt" -gt 3 ]; then
-                echo "Failed to install a usable iOS device platform after $attempt attempts."
-                xcodebuild -showdestinations -scheme App -project apps/iphone/ios/App/App.xcodeproj || true
-                exit 1
-              fi
-              echo "downloadPlatform attempt $attempt…"
-              xcrun simctl list >/dev/null 2>&1 || true
-              xcodebuild -downloadPlatform iOS || true
-              xcodebuild -runFirstLaunch || true
-              attempt=$((attempt + 1))
-              sleep 5
-            done
-            echo "iOS device platform ready after download."
-          fi
-          xcrun --show-sdk-version --sdk iphoneos
-          xcodebuild -showdestinations -scheme App -project apps/iphone/ios/App/App.xcodeproj 2>/dev/null \
-            | grep -E 'platform:iOS|Any iOS Device|error:' || true
-      - name: Verify signing prerequisites without printing credentials
-        shell: bash
-        run: |
-          for name in IOS_TEAM_ID IOS_CERTIFICATE_P12 IOS_CERTIFICATE_PASSWORD IOS_PROVISIONING_PROFILE ASC_API_KEY_ID ASC_API_ISSUER_ID ASC_API_KEY_P8; do
-            if [ -z "${!name}" ]; then echo "Missing GitHub app-store environment setting: $name"; exit 1; fi
-          done
-          echo "All app-store signing prerequisites are present (values not printed)."
-      - uses: pnpm/action-setup@v4
-        with:
-          version: 9.15.0
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 24
-          cache: pnpm
-      - run: pnpm install --frozen-lockfile
-      - uses: actions/download-artifact@v4
-        with:
-          name: iphone-web-bundle
-          path: apps/iphone/www
-      - name: Sync Capacitor with production web bundle
-        run: pnpm --filter @magnexis/iphone sync
-      - name: Install signing assets into an ephemeral keychain
-        run: bash apps/iphone/scripts/ci-signing.sh install
-      - name: Archive Release build for App Store (device SDK)
-        run: |
-          set -euo pipefail
-          xcodebuild -version
-          echo "Using code sign identity: ${MAPS_CODE_SIGN_IDENTITY:?signing identity was not detected}"
-          xcodebuild -showBuildSettings -project apps/iphone/ios/App/App.xcodeproj -scheme App -configuration Release \
-            DEVELOPMENT_TEAM="$IOS_TEAM_ID" CODE_SIGN_STYLE=Manual \
-            | grep -E 'PRODUCT_BUNDLE_IDENTIFIER|MARKETING_VERSION|IPHONEOS_DEPLOYMENT_TARGET|SDKROOT' || true
-          xcodebuild \
-            -project apps/iphone/ios/App/App.xcodeproj \
-            -scheme App \
-            -configuration Release \
-            -sdk iphoneos \
-            -destination 'generic/platform=iOS' \
-            -archivePath "$RUNNER_TEMP/Maps.xcarchive" \
-            DEVELOPMENT_TEAM="$IOS_TEAM_ID" \
-            CODE_SIGN_STYLE=Manual \
-            CODE_SIGN_IDENTITY="$MAPS_CODE_SIGN_IDENTITY" \
-            PROVISIONING_PROFILE_SPECIFIER="$MAPS_PROFILE_NAME" \
-            CURRENT_PROJECT_VERSION="${{ github.run_number }}" \
-            ONLY_ACTIVE_ARCH=NO \
-            archive
-          test -d "$RUNNER_TEMP/Maps.xcarchive/Products/Applications/App.app"
-          echo "Archive created at $RUNNER_TEMP/Maps.xcarchive"
-      - name: Export signed IPA for App Store Connect
-        run: |
-          set -euo pipefail
-          xcodebuild -exportArchive \
-            -archivePath "$RUNNER_TEMP/Maps.xcarchive" \
-            -exportPath "$RUNNER_TEMP/MapsExport" \
-            -exportOptionsPlist "$RUNNER_TEMP/ExportOptions.plist"
-          IPA=$(find "$RUNNER_TEMP/MapsExport" -maxdepth 1 -name '*.ipa' -print -quit)
-          test -n "$IPA"
-          test -f "$IPA"
-          BYTES=$(wc -c < "$IPA" | tr -d ' ')
-          echo "Exported signed IPA ($(basename "$IPA"), ${BYTES} bytes)"
-          if [ "$BYTES" -lt 1000000 ]; then
-            echo "IPA is unexpectedly small; refusing to upload a stub."
-            exit 1
-          fi
-          echo "MAPS_IPA=$IPA" >> "$GITHUB_ENV"
-          # Codesign summary only (no private key material)
-          codesign -dv --verbose=2 "$RUNNER_TEMP/Maps.xcarchive/Products/Applications/App.app" 2>&1 | grep -E 'Identifier=|Authority=|TeamIdentifier=' || true
-      - name: Validate and upload IPA to App Store Connect
-        run: |
-          set -euo pipefail
-          test -f "$MAPS_IPA"
-          KEY_PATH="$HOME/.appstoreconnect/private_keys/AuthKey_${ASC_API_KEY_ID}.p8"
-          test -f "$KEY_PATH"
-          echo "Validating IPA with App Store Connect API key (key file present, contents not printed)…"
-          xcrun altool --validate-app \
-            -f "$MAPS_IPA" \
-            -t ios \
-            --apiKey "$ASC_API_KEY_ID" \
-            --apiIssuer "$ASC_API_ISSUER_ID"
-          echo "Uploading signed IPA to App Store Connect…"
-          xcrun altool --upload-app \
-            -f "$MAPS_IPA" \
-            -t ios \
-            --apiKey "$ASC_API_KEY_ID" \
-            --apiIssuer "$ASC_API_ISSUER_ID"
-          echo "Upload submitted. Wait for App Store Connect processing before TestFlight or App Review."
-      - name: Remove temporary signing assets
-        if: always()
-        run: bash apps/iphone/scripts/ci-signing.sh cleanup
