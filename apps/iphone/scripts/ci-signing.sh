@@ -34,20 +34,7 @@ with open(os.environ['GITHUB_ENV'],'a') as f:
 dest = Path.home()/'Library/MobileDevice/Provisioning Profiles'
 dest.mkdir(parents=True, exist_ok=True)
 (dest/(p['UUID']+'.mobileprovision')).write_bytes((root/'maps.mobileprovision').read_bytes())
-with (root/'ExportOptions.plist').open('wb') as f:
-    # method app-store-connect exports a distributable IPA for ASC upload (Xcode 15+).
-    # destination export keeps upload as an explicit altool step with clearer CI logs.
-    plistlib.dump({
-        'method': 'app-store-connect',
-        'destination': 'export',
-        'teamID': team,
-        'signingStyle': 'manual',
-        'signingCertificate': 'Apple Distribution',
-        'provisioningProfiles': {'com.magnexis.maps': p['Name']},
-        'uploadSymbols': True,
-        'manageAppVersionAndBuildNumber': False,
-    }, f)
-print('Prepared App Store export options for com.magnexis.maps')
+print('Installed provisioning profile', p['Name'])
 PY
 PASSWORD=$(openssl rand -hex 32)
 security create-keychain -p "$PASSWORD" "$KEYCHAIN"
@@ -58,8 +45,42 @@ security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$PASSWORD
 security list-keychains -d user -s "$KEYCHAIN" "$HOME/Library/Keychains/login.keychain-db"
 # Confirm a Distribution identity exists without printing private key material.
 # Apple still issues some iOS App Store certs as "iPhone Distribution: …".
-security find-identity -v -p codesigning "$KEYCHAIN" | grep -Eq 'Apple Distribution|iPhone Distribution' \
+IDENTITIES=$(security find-identity -v -p codesigning "$KEYCHAIN" || true)
+echo "$IDENTITIES" | grep -Eq 'Apple Distribution|iPhone Distribution' \
   || { echo 'P12 must contain an Apple/iPhone Distribution certificate and private key'; exit 1; }
+if echo "$IDENTITIES" | grep -q 'Apple Distribution'; then
+  SIGN_CERT="Apple Distribution"
+else
+  SIGN_CERT="iPhone Distribution"
+fi
+export MAPS_CODE_SIGN_IDENTITY="$SIGN_CERT"
+if [ -n "${GITHUB_ENV:-}" ]; then
+  {
+    echo "MAPS_CODE_SIGN_IDENTITY=$SIGN_CERT"
+  } >> "$GITHUB_ENV"
+fi
+python3 - <<'PY'
+import os, plistlib
+from pathlib import Path
+root = Path(os.environ['RUNNER_TEMP'])
+team = os.environ['IOS_TEAM_ID']
+sign_cert = os.environ['MAPS_CODE_SIGN_IDENTITY']
+with (root/'maps-profile.plist').open('rb') as f: p = plistlib.load(f)
+with (root/'ExportOptions.plist').open('wb') as f:
+    # method app-store-connect exports a distributable IPA for ASC upload (Xcode 15+).
+    # destination export keeps upload as an explicit altool step with clearer CI logs.
+    plistlib.dump({
+        'method': 'app-store-connect',
+        'destination': 'export',
+        'teamID': team,
+        'signingStyle': 'manual',
+        'signingCertificate': sign_cert,
+        'provisioningProfiles': {'com.magnexis.maps': p['Name']},
+        'uploadSymbols': True,
+        'manageAppVersionAndBuildNumber': False,
+    }, f)
+print('Prepared App Store export options for com.magnexis.maps using', sign_cert)
+PY
 mkdir -p "$API_FOLDER"
 # altool looks for AuthKey_<KEY_ID>.p8 under ~/.appstoreconnect/private_keys
 printf '%s' "$ASC_API_KEY_P8" > "$API_FOLDER/AuthKey_$ASC_API_KEY_ID.p8"
