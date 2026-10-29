@@ -1,0 +1,475 @@
+@import "@magnexis/map-styles/tokens.css";
+@import "mapillary-js/dist/mapillary.css";
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/*
+ * Horizon responsive contract (apps/web — also Tauri desktop):
+ * - Default / sm: phone & narrow — full-width content sheet + bottom dock
+ * - md (768px): tablet / small desktop — left column panel, same dock & screens
+ * - lg+ (1024px): wide desktop — wider panel/dock caps only (no alternate chrome)
+ * Do not introduce md:hidden / hidden md:block forks for primary navigation.
+ *
+ * Chrome stacks (--mx-*-stack) include safe-area insets so dock, FABs, measure,
+ * status, and peek cards stay clear of notches / home indicators on all sizes.
+ */
+
+:root {
+  --mx-safe-t: env(safe-area-inset-top, 0px);
+  --mx-safe-r: env(safe-area-inset-right, 0px);
+  --mx-safe-b: env(safe-area-inset-bottom, 0px);
+  --mx-safe-l: env(safe-area-inset-left, 0px);
+
+  /* Dock pill (~3.25rem) + bottom pad (0.65rem) + home indicator */
+  --mx-dock-stack: calc(3.9rem + var(--mx-safe-b));
+  /* Status chip just above dock */
+  --mx-status-stack: calc(var(--mx-dock-stack) + 0.2rem);
+  /* Right FABs / attribution above status */
+  --mx-fab-stack: calc(var(--mx-dock-stack) + 1.05rem);
+  /* Place / pin peek cards */
+  --mx-peek-stack: calc(var(--mx-dock-stack) + 1.85rem);
+  /* Left measure ruler + scale (compact control height) */
+  --mx-measure-stack: calc(var(--mx-dock-stack) + 1.85rem);
+  /* Top search bar clearance (logo + search row) */
+  --mx-top-stack: calc(4.75rem + var(--mx-safe-t));
+}
+
+@media (min-width: 640px) {
+  :root {
+    --mx-dock-stack: calc(4.15rem + var(--mx-safe-b));
+    --mx-top-stack: calc(5.25rem + var(--mx-safe-t));
+    --mx-fab-stack: calc(var(--mx-dock-stack) + 1.2rem);
+    --mx-peek-stack: calc(var(--mx-dock-stack) + 2rem);
+    --mx-measure-stack: calc(var(--mx-dock-stack) + 2rem);
+  }
+}
+
+@media (min-width: 768px) {
+  :root {
+    /* Tablet / small desktop: more map beside a slightly narrower panel */
+    --mx-dock-stack: calc(4.35rem + var(--mx-safe-b));
+    --mx-status-stack: calc(var(--mx-dock-stack) + 0.35rem);
+    --mx-fab-stack: calc(var(--mx-dock-stack) + 1.35rem);
+    --mx-peek-stack: calc(var(--mx-dock-stack) + 2.15rem);
+    --mx-measure-stack: calc(var(--mx-dock-stack) + 2.15rem);
+    --mx-top-stack: calc(5.5rem + var(--mx-safe-t));
+    --mx-panel-max: 22rem;
+  }
+}
+
+@media (min-width: 1024px) {
+  :root {
+    --mx-dock-stack: calc(4.5rem + var(--mx-safe-b));
+    --mx-fab-stack: calc(var(--mx-dock-stack) + 1.5rem);
+    --mx-measure-stack: calc(var(--mx-dock-stack) + 2.35rem);
+    --mx-panel-max: 26rem;
+  }
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--mx-bg);
+  color: var(--mx-text);
+  font-family: var(--font-sora), var(--mx-font-sans);
+  overflow: hidden;
+}
+
+.maplibregl-map {
+  font: inherit;
+}
+
+/*
+ * MapLibre controls — clear of unified Horizon chrome on all breakpoints
+ * (top search bar + bottom primary dock + status strip + safe areas).
+ */
+.maplibregl-ctrl-top-right {
+  top: var(--mx-top-stack) !important;
+  right: max(0.75rem, var(--mx-safe-r)) !important;
+  pointer-events: auto;
+}
+
+.maplibregl-ctrl-top-left {
+  top: var(--mx-top-stack) !important;
+  left: max(0.75rem, var(--mx-safe-l)) !important;
+}
+
+.maplibregl-ctrl-bottom-left {
+  bottom: var(--mx-measure-stack) !important;
+  left: max(0.75rem, var(--mx-safe-l)) !important;
+}
+
+.maplibregl-ctrl-bottom-right {
+  bottom: var(--mx-fab-stack) !important;
+  right: max(0.75rem, var(--mx-safe-r)) !important;
+  max-width: min(70vw, 280px);
+  z-index: 5;
+}
+
+/* Hide MapLibre’s default attribution box — compact credits live in Horizon chrome */
+.maplibregl-ctrl-attrib {
+  display: none !important;
+}
+
+@media (min-width: 768px) {
+  .maplibregl-ctrl-bottom-right {
+    /* Clear the right FAB column on tablet/desktop */
+    right: max(4.5rem, calc(var(--mx-safe-r) + 3.75rem)) !important;
+  }
+}
+
+.maplibregl-ctrl-group {
+  border: 1px solid var(--mx-border) !important;
+  border-radius: var(--mx-radius) !important;
+  overflow: hidden;
+  box-shadow: var(--mx-shadow-soft) !important;
+  background: var(--mx-control) !important;
+}
+
+.maplibregl-ctrl-group button {
+  width: 36px !important;
+  height: 36px !important;
+  background: transparent !important;
+}
+
+/* Vertical map scale (MapMeasureRuler) — classic bracket scale, not a slider */
+.mx-scale-ruler {
+  user-select: none;
+}
+.mx-scale-ruler__bar {
+  box-sizing: border-box;
+  position: relative;
+}
+.mx-scale-ruler__spine {
+  position: absolute;
+  left: 50%;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  transform: translateX(-50%);
+  background: var(--mx-text);
+  opacity: 0.92;
+  border-radius: 1px;
+}
+.mx-scale-ruler__cap {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: var(--mx-text);
+  border-radius: 1px;
+}
+.mx-scale-ruler__cap--top {
+  top: 0;
+}
+.mx-scale-ruler__cap--bottom {
+  bottom: 0;
+}
+.mx-scale-ruler__tick {
+  position: absolute;
+  top: 50%;
+  left: 20%;
+  right: 20%;
+  height: 1.5px;
+  transform: translateY(-50%);
+  background: color-mix(in srgb, var(--mx-text) 55%, transparent);
+  border-radius: 1px;
+}
+
+/* Map pins — Google-style teardrop. Glyph is INNER so MapLibre can own
+   transform on the root marker element without wiping rotation/shape. */
+.mx-drop-pin,
+.mx-search-pin {
+  position: relative;
+  width: 28px;
+  height: 36px;
+  cursor: grab;
+  z-index: 2;
+}
+
+.mx-search-pin {
+  cursor: default;
+  pointer-events: none;
+}
+
+.mx-drop-pin__glyph {
+  display: block;
+  width: 28px;
+  height: 36px;
+  pointer-events: none;
+  filter: drop-shadow(0 3px 8px rgba(7, 17, 31, 0.5));
+}
+
+.mx-drop-pin__shape {
+  stroke: #ffffff;
+  stroke-width: 1.75;
+}
+
+/* Dropped pin: Magnexis danger (coral) — distinct from blue GPS glow */
+.mx-drop-pin .mx-drop-pin__shape {
+  fill: var(--mx-danger);
+}
+
+/* Search / selection pin: Google-red */
+.mx-search-pin .mx-drop-pin__shape {
+  fill: #ea4335;
+}
+
+.mx-drop-pin__hole {
+  fill: #ffffff;
+}
+
+[data-theme="light"] .mx-drop-pin__glyph {
+  filter: drop-shadow(0 2px 6px rgba(11, 21, 36, 0.35));
+}
+
+/* Directions A/B/C markers — distinct from coral drop-pin and blue GPS */
+.mx-waypoint-marker {
+  position: relative;
+  width: 28px;
+  height: 36px;
+  pointer-events: none;
+  z-index: 3;
+}
+
+.mx-waypoint-marker__badge {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  font-family: var(--mx-font-display, ui-sans-serif, system-ui, sans-serif);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: #ffffff;
+  background: #1a73e8;
+  border: 2.5px solid #ffffff;
+  box-shadow: 0 2px 8px rgba(7, 17, 31, 0.4);
+}
+
+.mx-waypoint-marker--origin .mx-waypoint-marker__badge {
+  background: #1a73e8;
+}
+
+.mx-waypoint-marker--stop .mx-waypoint-marker__badge {
+  background: #f9ab00;
+  color: #1a1a1a;
+}
+
+.mx-waypoint-marker--destination .mx-waypoint-marker__badge {
+  background: #ea4335;
+}
+
+.mx-waypoint-marker::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: 0;
+  width: 2px;
+  height: 8px;
+  margin-left: -1px;
+  background: color-mix(in srgb, #1a73e8 70%, #111);
+  border-radius: 1px;
+}
+
+.mx-waypoint-marker--stop::after {
+  background: color-mix(in srgb, #f9ab00 70%, #111);
+}
+
+.mx-waypoint-marker--destination::after {
+  background: color-mix(in srgb, #ea4335 70%, #111);
+}
+
+[data-theme="light"] .mx-waypoint-marker__badge {
+  box-shadow: 0 2px 6px rgba(11, 21, 36, 0.3);
+}
+
+/* Google Maps–style current-location marker (not a pin) */
+.mx-user-location {
+  position: relative;
+  width: 48px;
+  height: 48px;
+  pointer-events: none;
+}
+
+/* Soft facing fan — tip points “up” (north); Marker.setRotation applies heading */
+.mx-user-location__cone {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 40px;
+  height: 34px;
+  margin: -34px 0 0 -20px;
+  opacity: 0;
+  pointer-events: none;
+  background: linear-gradient(
+    to top,
+    color-mix(in srgb, var(--mx-accent) 6%, transparent),
+    color-mix(in srgb, var(--mx-accent) 45%, transparent)
+  );
+  clip-path: polygon(50% 0%, 6% 100%, 94% 100%);
+  transform-origin: 50% 100%;
+  transition: opacity 0.2s var(--mx-ease);
+}
+
+.mx-user-location--has-heading .mx-user-location__cone {
+  opacity: 1;
+}
+
+.mx-user-location__pulse,
+.mx-user-location__pulse-2 {
+  position: absolute;
+  inset: 0;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--mx-accent) 28%, transparent);
+  border: 1px solid color-mix(in srgb, var(--mx-accent) 45%, transparent);
+  animation: mx-loc-pulse 2.4s var(--mx-ease) infinite;
+}
+
+.mx-user-location__pulse-2 {
+  animation-delay: 1.2s;
+}
+
+.mx-user-location__dot {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 14px;
+  height: 14px;
+  margin: -7px 0 0 -7px;
+  border-radius: 999px;
+  background: var(--mx-accent);
+  border: 2.5px solid #ffffff;
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--mx-accent) 55%, transparent),
+    0 2px 8px rgba(7, 17, 31, 0.35),
+    0 0 12px color-mix(in srgb, var(--mx-accent) 55%, transparent);
+}
+
+[data-theme="light"] .mx-user-location__dot {
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--mx-accent) 40%, transparent),
+    0 2px 10px rgba(7, 17, 31, 0.22),
+    0 0 14px color-mix(in srgb, var(--mx-accent) 40%, transparent);
+}
+
+@keyframes mx-loc-pulse {
+  0% {
+    transform: scale(0.35);
+    opacity: 0.75;
+  }
+  70% {
+    transform: scale(1);
+    opacity: 0;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mx-user-location__pulse,
+  .mx-user-location__pulse-2 {
+    animation: none;
+    transform: scale(0.7);
+    opacity: 0.35;
+  }
+
+  .mx-user-location__cone {
+    transition: none;
+  }
+}
+
+.mx-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--mx-accent) 35%, transparent) transparent;
+}
+
+.mx-scroll::-webkit-scrollbar {
+  width: 6px;
+}
+.mx-scroll::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--mx-accent) 40%, transparent);
+  border-radius: 999px;
+}
+
+@keyframes mx-fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.mx-enter {
+  animation: mx-fade-up 280ms var(--mx-ease) both;
+}
+
+/* --- Horizon shell transitions (open + close; panels stay mounted) --- */
+
+.mx-scrim {
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 280ms var(--mx-ease);
+}
+.mx-scrim-open {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* Settings sidebar — slide from left */
+.mx-drawer {
+  transform: translate3d(-104%, 0, 0);
+  transition: transform 340ms var(--mx-ease);
+  will-change: transform;
+}
+.mx-drawer-open {
+  transform: translate3d(0, 0, 0);
+}
+
+/* Content screen — slide up from dock (all breakpoints) */
+.mx-sheet {
+  transform: translate3d(0, 18%, 0);
+  opacity: 0;
+  pointer-events: none;
+  transition:
+    transform 340ms var(--mx-ease),
+    opacity 260ms var(--mx-ease);
+  will-change: transform, opacity;
+}
+.mx-sheet-open {
+  transform: translate3d(0, 0, 0);
+  opacity: 1;
+  pointer-events: auto;
+}
+
+@media (min-width: 768px) {
+  /* Wide layout: gentle rise + slight left settle into the column */
+  .mx-sheet {
+    transform: translate3d(-6%, 10%, 0);
+  }
+  .mx-sheet-open {
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mx-scrim,
+  .mx-drawer,
+  .mx-sheet,
+  .mx-enter {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+  }
+}

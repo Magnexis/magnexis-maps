@@ -1,0 +1,41 @@
+{
+  "name": "magnexis-maps",
+  "version": "1.4.0",
+  "private": true,
+  "description": "Magnexis Maps — cross-platform geographic intelligence, mapping & navigation",
+  "packageManager": "pnpm@9.15.0",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "dev": "turbo run dev --parallel",
+    "dev:web": "turbo run dev --filter=@magnexis/web",
+    "dev:api": "turbo run dev --filter=@magnexis/api",
+    "dev:admin": "turbo run dev --filter=@magnexis/admin",
+    "build": "turbo run build",
+    "lint": "turbo run lint",
+    "typecheck": "turbo run typecheck",
+    "test": "turbo run test",
+    "test:integration": "vitest run --config tests/integration/vitest.config.ts",
+    "db:migrate": "pnpm --filter @magnexis/database migrate",
+    "db:seed": "pnpm --filter @magnexis/database seed",
+    "db:reset": "pnpm --filter @magnexis/database reset",
+    "docker:up": "docker compose -f infrastructure/docker/docker-compose.yml up -d",
+    "docker:routing": "docker compose -f infrastructure/docker/docker-compose.yml --profile routing up -d valhalla",
+    "docker:down": "docker compose -f infrastructure/docker/docker-compose.yml --profile routing down",
+    "docker:down:core": "docker compose -f infrastructure/docker/docker-compose.yml down",
+    "secrets:tomtom": "node scripts/set-tomtom-key.mjs",
+    "secrets:google": "node scripts/set-google-key.mjs",
+    "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md,yml,yaml}\"",
+    "clean": "turbo run clean && rimraf node_modules"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "esbuild": "0.28.2",
+    "prettier": "^3.4.2",
+    "rimraf": "^6.0.1",
+    "turbo": "^2.3.3",
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.8"
+  }
+}

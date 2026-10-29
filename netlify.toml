@@ -1,0 +1,35 @@
+# Magnexis Maps — Netlify site config (apps/web Next.js)
+# Deploy from the monorepo root. Do not invent production URLs; set them after linking a site.
+
+[build]
+  base = "."
+  command = "corepack pnpm exec tsc -b packages/shared packages/database packages/provider-adapters packages/map-styles packages/api-client packages/navigation services/api && node scripts/build-netlify.mjs"
+  publish = "apps/web/.next-web"
+
+[build.environment]
+  NODE_VERSION = "20"
+  PNPM_VERSION = "9"
+
+[functions]
+  directory = ".netlify/generated-functions"
+  node_bundler = "esbuild"
+
+# Set in Netlify UI → Site configuration → Environment variables (not in git):
+#   NEXT_PUBLIC_API_URL
+#   NEXT_PUBLIC_MAP_STYLE_URL
+#   NEXT_PUBLIC_DEFAULT_CENTER_LNG / _LAT / _ZOOM
+#   NEXT_PUBLIC_MAP_ATTRIBUTION
+# Never put JWT_SECRET, DATABASE_URL, or provider API keys in NEXT_PUBLIC_* vars.
+
+[context.production.environment]
+  NODE_ENV = "production"
+
+[context.deploy-preview.environment]
+  NODE_ENV = "production"
+
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Frame-Options = "DENY"
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"

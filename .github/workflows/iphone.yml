@@ -1,0 +1,125 @@
+name: iPhone build and TestFlight
+
+on:
+  workflow_dispatch:
+    inputs:
+      distribution:
+        description: Build a simulator app or sign and upload to TestFlight
+        type: choice
+        options: [simulator, testflight]
+        default: simulator
+  push:
+    branches: [main]
+    paths: ["apps/iphone/**", "apps/web/**", "packages/**", "pnpm-lock.yaml", ".github/workflows/iphone.yml"]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: iphone-${{ github.ref }}-${{ inputs.distribution || 'simulator' }}
+  cancel-in-progress: false
+
+env:
+  IPHONE_API_URL: https://magnexis-maps.netlify.app
+  IPHONE_SHARE_URL: https://magnexis-maps.netlify.app
+  IPHONE_PRIVACY_URL: https://magnexis-maps.netlify.app/privacy/
+  IPHONE_SUPPORT_URL: https://magnexis-maps.netlify.app/support/
+
+jobs:
+  simulator:
+    runs-on: macos-26
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Build shared packages and test iPhone packaging
+        run: |
+          pnpm exec tsc -b packages/shared packages/api-client packages/map-styles packages/navigation
+          pnpm --filter @magnexis/iphone test
+          pnpm --filter @magnexis/web test
+          pnpm --filter @magnexis/iphone build
+          pnpm --filter @magnexis/iphone sync
+          pnpm --filter @magnexis/iphone release:check
+      - name: Compile the actual native app
+        run: |
+          xcodebuild -version
+          xcodebuild -project apps/iphone/ios/App/App.xcodeproj -scheme App -configuration Debug -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' -derivedDataPath "$RUNNER_TEMP/MapsSimulator" CODE_SIGNING_ALLOWED=NO build
+      - name: Launch on a simulator and capture evidence
+        run: |
+          DEVICE_ID=$(xcrun simctl list devices available -j | python3 -c 'import json,sys; d=json.load(sys.stdin); print(next(x["udid"] for v in d["devices"].values() for x in v if x["name"].startswith("iPhone")))')
+          xcrun simctl boot "$DEVICE_ID"
+          xcrun simctl bootstatus "$DEVICE_ID" -b
+          xcrun simctl install "$DEVICE_ID" "$RUNNER_TEMP/MapsSimulator/Build/Products/Debug-iphonesimulator/App.app"
+          xcrun simctl launch "$DEVICE_ID" com.magnexis.maps
+          mkdir -p artifacts
+          sleep 10
+          xcrun simctl io "$DEVICE_ID" screenshot artifacts/iphone-launch.png
+          ditto -c -k --sequesterRsrc --keepParent "$RUNNER_TEMP/MapsSimulator/Build/Products/Debug-iphonesimulator/App.app" artifacts/Maps-simulator.zip
+      - uses: actions/upload-artifact@v4
+        with:
+          name: iphone-simulator-${{ github.run_number }}
+          path: artifacts/
+          retention-days: 7
+      - uses: actions/upload-artifact@v4
+        with:
+          name: iphone-web-bundle
+          path: apps/iphone/www/
+          retention-days: 3
+
+  testflight:
+    if: github.event_name == 'workflow_dispatch' && inputs.distribution == 'testflight'
+    needs: simulator
+    runs-on: macos-26
+    timeout-minutes: 30
+    environment: app-store
+    env:
+      IOS_TEAM_ID: ${{ vars.IOS_TEAM_ID }}
+      IOS_CERTIFICATE_P12: ${{ secrets.IOS_CERTIFICATE_P12 }}
+      IOS_CERTIFICATE_PASSWORD: ${{ secrets.IOS_CERTIFICATE_PASSWORD }}
+      IOS_PROVISIONING_PROFILE: ${{ secrets.IOS_PROVISIONING_PROFILE }}
+      ASC_API_KEY_ID: ${{ secrets.ASC_API_KEY_ID }}
+      ASC_API_ISSUER_ID: ${{ secrets.ASC_API_ISSUER_ID }}
+      ASC_API_KEY_P8: ${{ secrets.ASC_API_KEY_P8 }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify signing prerequisites without printing credentials
+        shell: bash
+        run: |
+          for name in IOS_TEAM_ID IOS_CERTIFICATE_P12 IOS_CERTIFICATE_PASSWORD IOS_PROVISIONING_PROFILE ASC_API_KEY_ID ASC_API_ISSUER_ID ASC_API_KEY_P8; do
+            if [ -z "${!name}" ]; then echo "Missing GitHub app-store environment setting: $name"; exit 1; fi
+          done
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - uses: actions/download-artifact@v4
+        with:
+          name: iphone-web-bundle
+          path: apps/iphone/www
+      - run: pnpm --filter @magnexis/iphone sync
+      - name: Install signing assets into an ephemeral keychain
+        run: bash apps/iphone/scripts/ci-signing.sh install
+      - name: Archive and export the signed iPhone app
+        run: |
+          xcodebuild -project apps/iphone/ios/App/App.xcodeproj -scheme App -configuration Release -destination 'generic/platform=iOS' -archivePath "$RUNNER_TEMP/Maps.xcarchive" DEVELOPMENT_TEAM="$IOS_TEAM_ID" CODE_SIGN_STYLE=Manual CODE_SIGN_IDENTITY='Apple Distribution' PROVISIONING_PROFILE_SPECIFIER="$MAPS_PROFILE_NAME" CURRENT_PROJECT_VERSION="${{ github.run_number }}" archive
+          xcodebuild -exportArchive -archivePath "$RUNNER_TEMP/Maps.xcarchive" -exportPath "$RUNNER_TEMP/MapsExport" -exportOptionsPlist "$RUNNER_TEMP/ExportOptions.plist"
+      - name: Validate and upload to App Store Connect
+        run: |
+          IPA=$(find "$RUNNER_TEMP/MapsExport" -maxdepth 1 -name '*.ipa' -print -quit)
+          test -n "$IPA"
+          xcrun altool --validate-app -f "$IPA" -t ios --apiKey "$ASC_API_KEY_ID" --apiIssuer "$ASC_API_ISSUER_ID"
+          xcrun altool --upload-app -f "$IPA" -t ios --apiKey "$ASC_API_KEY_ID" --apiIssuer "$ASC_API_ISSUER_ID"
+      - name: Remove temporary signing assets
+        if: always()
+        run: bash apps/iphone/scripts/ci-signing.sh cleanup

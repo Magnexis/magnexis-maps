@@ -1,0 +1,30 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Magnexis Maps",
+  "version": "0.1.0",
+  "identifier": "com.magnexis.maps",
+  "build": {
+    "frontendDist": "../../web/out",
+    "devUrl": "http://localhost:3000",
+    "beforeDevCommand": "pnpm --filter @magnexis/web dev",
+    "beforeBuildCommand": "pnpm --filter @magnexis/web build"
+  },
+  "app": {
+    "windows": [
+      {
+        "title": "Magnexis Maps",
+        "width": 1440,
+        "height": 900,
+        "resizable": true
+      }
+    ],
+    "security": {
+      "csp": null
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "icon": ["icons/icon.png"]
+  }
+}

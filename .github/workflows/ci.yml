@@ -1,0 +1,55 @@
+# Optional mirror — prefer .gitlab-ci.yml for this GitLab-oriented project.
+name: CI
+
+on:
+  push:
+    branches: [main, master, develop]
+  pull_request:
+
+jobs:
+  build-test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgis/postgis:16-3.4
+        env:
+          POSTGRES_USER: magnexis
+          POSTGRES_PASSWORD: magnexis
+          POSTGRES_DB: magnexis_maps
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U magnexis -d magnexis_maps"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      DATABASE_URL: postgresql://magnexis:magnexis@localhost:5432/magnexis_maps
+      JWT_SECRET: ci-test-secret-key-32chars-min
+      NODE_ENV: test
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+      - name: Install
+        run: pnpm install --frozen-lockfile=false
+      - name: Build packages
+        run: pnpm --filter @magnexis/shared --filter @magnexis/geospatial --filter @magnexis/provider-adapters --filter @magnexis/database --filter @magnexis/api-client --filter @magnexis/map-styles build
+      - name: Unit tests
+        run: pnpm --filter @magnexis/shared --filter @magnexis/api test
+      - name: Migrate & seed
+        run: |
+          sleep 3
+          pnpm db:migrate
+          pnpm db:seed
+      - name: Typecheck API & web
+        run: |
+          pnpm --filter @magnexis/api typecheck
+          pnpm --filter @magnexis/web typecheck

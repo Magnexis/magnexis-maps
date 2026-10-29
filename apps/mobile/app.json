@@ -1,0 +1,39 @@
+{
+  "expo": {
+    "name": "Magnexis Maps",
+    "slug": "magnexis-maps",
+    "version": "1.2.0",
+    "orientation": "default",
+    "scheme": "magnexis-maps",
+    "userInterfaceStyle": "automatic",
+    "icon": "./assets/icon.png",
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#07111F"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.magnexis.maps",
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "Magnexis Maps uses your location to show your position on the map and provide directions when you request them. Location is not collected in the background by default."
+      }
+    },
+    "android": {
+      "package": "com.magnexis.maps",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/icon.png",
+        "backgroundColor": "#07111F"
+      },
+      "permissions": ["ACCESS_COARSE_LOCATION", "ACCESS_FINE_LOCATION"]
+    },
+    "plugins": [
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Allow Magnexis Maps to use your location for map positioning and navigation."
+        }
+      ]
+    ]
+  }
+}

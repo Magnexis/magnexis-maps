@@ -1,0 +1,65 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Builds
+dist/
+build/
+.next/
+.next-iphone/
+.next-web/
+.turbo/
+out/
+*.tsbuildinfo
+
+# Env
+.env
+.env.*
+.env.local
+.env.*.local
+!.env.example
+
+# IDE / OS
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json
+*.swp
+*.swo
+
+# Logs / coverage
+logs/
+*.log
+coverage/
+.nyc_output/
+
+# Docker / Netlify
+.netlify/
+
+# Mobile / Desktop
+apps/mobile/.expo/
+apps/mobile/android/
+apps/mobile/ios/
+apps/iphone/www/
+apps/desktop/src-tauri/target/
+
+# Data downloads (opt-in large extracts)
+infrastructure/data/downloads/
+*.osm.pbf
+*.gpkg
+
+# Demo recording scratch (keep magnexis-maps-demo.mp4)
+docs/demo/screencast/
+docs/demo/video-raw/
+docs/demo/_serve/
+
+# Secrets
+.secrets/
+scripts/configure-netlify.mjs
+*.pem
+*.key
+credentials.json
+*.p12
+*.p8
+*.mobileprovision

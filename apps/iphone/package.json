@@ -1,0 +1,30 @@
+{
+  "name": "@magnexis/iphone",
+  "version": "1.4.0",
+  "private": true,
+  "description": "iPhone distribution of the shared Magnexis Maps web workspace",
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "preview": "node scripts/preview.mjs",
+    "sync": "cap sync ios",
+    "open": "cap open ios",
+    "typecheck": "tsc --noEmit",
+    "test": "node --test scripts/*.test.mjs",
+    "release:check": "node scripts/release-check.mjs"
+  },
+  "dependencies": {
+    "@capacitor/core": "8.6.0",
+    "@capacitor/ios": "8.6.0",
+    "@capacitor/app": "^8.0.0",
+    "@capacitor/browser": "^8.0.0",
+    "@capacitor/geolocation": "^8.0.0",
+    "@capacitor/share": "^8.0.0",
+    "@capacitor/network": "^8.0.0",
+    "@capacitor-community/text-to-speech": "8.0.2"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "8.6.0",
+    "@types/node": "^22.10.2",
+    "typescript": "^5.7.2"
+  }
+}

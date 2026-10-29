@@ -1,0 +1,73 @@
+name: magnexis-maps
+
+services:
+  postgres:
+    image: postgis/postgis:16-3.4
+    container_name: magnexis-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-magnexis}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-magnexis}
+      POSTGRES_DB: ${POSTGRES_DB:-magnexis_maps}
+    ports:
+      # Default host 5433 avoids clashing with a local Postgres on 5432
+      - "${POSTGRES_PORT:-5433}:5432"
+    volumes:
+      - magnexis_pgdata:/var/lib/postgresql/data
+      - ../migrations/001_init.sql:/docker-entrypoint-initdb.d/001_init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-magnexis} -d ${POSTGRES_DB:-magnexis_maps}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    container_name: magnexis-redis
+    restart: unless-stopped
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - magnexis_redis:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # Optional local Valhalla — enable with:
+  #   pnpm docker:routing
+  # First start downloads Connecticut OSM (~50MB) and builds tiles (several minutes).
+  # Then set ROUTING_PROVIDER=valhalla and VALHALLA_URL=http://localhost:8002 in .env
+  valhalla:
+    profiles: ["routing"]
+    image: ghcr.io/gis-ops/docker-valhalla/valhalla:latest
+    container_name: magnexis-valhalla
+    restart: unless-stopped
+    ports:
+      - "${VALHALLA_PORT:-8002}:8002"
+    environment:
+      # CT extract matches Magnexis’s primary development region
+      tile_urls: https://download.geofabrik.de/north-america/us/connecticut-latest.osm.pbf
+      use_tiles_ignore_pbf: "True"
+      build_elevation: "False"
+      build_admins: "True"
+      build_time_zones: "False"
+      serve_tiles: "True"
+    volumes:
+      - magnexis_valhalla:/custom_files
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "curl -sf http://localhost:8002/status || exit 1",
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 10
+      start_period: 600s
+
+volumes:
+  magnexis_pgdata:
+  magnexis_redis:
+  magnexis_valhalla:

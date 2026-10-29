@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="robots" content="noindex" />
+    <title>Maps support form registration</title>
+  </head>
+  <body>
+    <!-- Netlify detects this static form at deploy time; the public UI is /support. -->
+    <form
+      name="maps-support"
+      method="POST"
+      action="/support-received/"
+      data-netlify="true"
+      netlify-honeypot="website"
+      hidden
+    >
+      <input type="hidden" name="form-name" value="maps-support" /><input
+        name="website"
+      /><input type="email" name="email" /><select name="topic">
+        <option>Bug report</option></select
+      ><textarea name="message"></textarea>
+    </form>
+    <a href="/support/">Open Maps support</a>
+  </body>
+</html>

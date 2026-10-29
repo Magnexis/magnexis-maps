@@ -1,0 +1,81 @@
+# Magnexis Maps — GitLab CI (preferred for this GitLab-oriented workspace)
+
+stages:
+  - test
+  - build
+
+variables:
+  NODE_VERSION: "20"
+  PNPM_VERSION: "9"
+  POSTGRES_USER: magnexis
+  POSTGRES_PASSWORD: magnexis
+  POSTGRES_DB: magnexis_maps
+  DATABASE_URL: "postgresql://magnexis:magnexis@postgres:5432/magnexis_maps"
+  JWT_SECRET: "ci-test-secret-key-32chars-min"
+  NODE_ENV: test
+  PNPM_STORE_PATH: "$CI_PROJECT_DIR/.pnpm-store"
+
+default:
+  image: node:20-bookworm
+  before_script:
+    - corepack enable
+    - corepack prepare "pnpm@${PNPM_VERSION}" --activate
+    - pnpm config set store-dir "$PNPM_STORE_PATH"
+    - pnpm install --frozen-lockfile=false
+
+cache:
+  key:
+    files:
+      - pnpm-lock.yaml
+  paths:
+    - .pnpm-store
+
+unit-and-typecheck:
+  stage: test
+  script:
+    - pnpm --filter @magnexis/shared --filter @magnexis/geospatial --filter @magnexis/provider-adapters --filter @magnexis/database --filter @magnexis/api-client --filter @magnexis/map-styles --filter @magnexis/navigation build
+    - pnpm --filter @magnexis/shared --filter @magnexis/navigation --filter @magnexis/api test
+    - pnpm --filter @magnexis/api typecheck
+    - pnpm --filter @magnexis/web typecheck
+    - pnpm --filter @magnexis/mobile typecheck
+
+db-migrate-seed:
+  stage: test
+  services:
+    - name: postgis/postgis:16-3.4
+      alias: postgres
+      variables:
+        POSTGRES_USER: magnexis
+        POSTGRES_PASSWORD: magnexis
+        POSTGRES_DB: magnexis_maps
+        POSTGRES_HOST_AUTH_METHOD: trust
+  script:
+    - pnpm --filter @magnexis/shared --filter @magnexis/database build
+    - sleep 8
+    - pnpm db:migrate
+    - pnpm db:seed
+
+build-web:
+  stage: build
+  needs: ["unit-and-typecheck"]
+  script:
+    - pnpm --filter @magnexis/shared --filter @magnexis/api-client --filter @magnexis/map-styles --filter @magnexis/navigation build
+    - pnpm --filter @magnexis/web build
+  artifacts:
+    paths:
+      - apps/web/.next/
+    exclude:
+      - apps/web/.next/cache/
+    expire_in: 1 day
+
+build-api:
+  stage: build
+  needs: ["unit-and-typecheck"]
+  script:
+    - pnpm --filter @magnexis/shared --filter @magnexis/geospatial --filter @magnexis/provider-adapters --filter @magnexis/database --filter @magnexis/api-client build
+    - pnpm --filter @magnexis/api build
+  artifacts:
+    paths:
+      - services/api/dist/
+      - packages/*/dist/
+    expire_in: 1 day

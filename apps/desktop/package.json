@@ -1,0 +1,17 @@
+{
+  "name": "@magnexis/desktop",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "tauri dev",
+    "build": "tauri build",
+    "typecheck": "echo \"Desktop shell uses Tauri; build requires Rust toolchain\"",
+    "clean": "rimraf src-tauri/target"
+  },
+  "dependencies": {
+    "@tauri-apps/api": "^2.1.1"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.1.0"
+  }
+}
