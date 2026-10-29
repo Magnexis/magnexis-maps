@@ -48,12 +48,17 @@ jobs:
               token = token.decode()
 
           def get(path, params=None):
+              from urllib.parse import urlencode
               url = "https://api.appstoreconnect.apple.com" + path
               if params:
-                  url += "?" + "&".join(f"{k}={urllib.request.quote(str(v))}" for k, v in params.items())
+                  url += "?" + urlencode(params)
               req = urllib.request.Request(url, headers={"Authorization": f"Bearer {token}", "Accept": "application/json"})
-              with urllib.request.urlopen(req, timeout=60) as resp:
-                  return json.load(resp)
+              try:
+                  with urllib.request.urlopen(req, timeout=60) as resp:
+                      return json.load(resp)
+              except urllib.error.HTTPError as e:
+                  body = e.read().decode("utf-8", "replace")
+                  raise SystemExit(f"HTTP {e.code} for {url}\n{body}") from e
 
           print("=== Apps (bundleId contains magnexis) ===")
           apps = get("/v1/apps", {"limit": "200"}).get("data", [])
@@ -71,17 +76,19 @@ jobs:
           app_id = maps[0]["id"]
 
           print("\n=== Recent builds ===")
-          builds = get(f"/v1/apps/{app_id}/builds", {"limit": "10", "sort": "-uploadedDate", "include": "preReleaseVersion"}).get("data", [])
-          included = get(f"/v1/apps/{app_id}/builds", {"limit": "10", "sort": "-uploadedDate", "include": "preReleaseVersion"}).get("included", [])
-          # re-fetch once with include properly
-          builds_resp = get(f"/v1/apps/{app_id}/builds", {"limit": "10", "sort": "-uploadedDate", "include": "preReleaseVersion"})
+          builds_resp = get("/v1/builds", {
+              "filter[app]": app_id,
+              "limit": "10",
+              "sort": "-uploadedDate",
+              "include": "preReleaseVersion",
+          })
           builds = builds_resp.get("data", [])
           by_id = {x["id"]: x for x in builds_resp.get("included", [])}
           if not builds:
               print("No builds returned for this app.")
           for b in builds:
               atr = b["attributes"]
-              ver_rel = (b.get("relationships") or {}).get("preReleaseVersion", {}).get("data") or {}
+              ver_rel = ((b.get("relationships") or {}).get("preReleaseVersion", {}) or {}).get("data") or {}
               ver = by_id.get(ver_rel.get("id"), {}).get("attributes", {}).get("version", "?")
               print(
                   f"BUILD {ver} ({atr.get('version')}) | processing={atr.get('processingState')} "
@@ -90,9 +97,7 @@ jobs:
               )
 
           print("\n=== Beta groups ===")
-          groups = get(f"/v1/apps/{app_id}/betaGroups", {"limit": "50", "include": "betaTesters"}).get("data", [])
-          groups_resp = get(f"/v1/apps/{app_id}/betaGroups", {"limit": "50"})
-          groups = groups_resp.get("data", [])
+          groups = get("/v1/betaGroups", {"filter[app]": app_id, "limit": "50"}).get("data", [])
           if not groups:
               print("No beta groups. Create an Internal Testing group and add yourself + the build.")
           for g in groups:
@@ -102,10 +107,9 @@ jobs:
                   f"| publicLinkEnabled={atr.get('publicLinkEnabled')} | publicLink={atr.get('publicLink')} "
                   f"| id={g['id']}"
               )
-              # testers in group
               try:
                   testers = get(f"/v1/betaGroups/{g['id']}/betaTesters", {"limit": "50"}).get("data", [])
-              except Exception as e:
+              except SystemExit as e:
                   print(f"  (testers fetch failed: {e})")
                   testers = []
               if not testers:
@@ -113,10 +117,9 @@ jobs:
               for t in testers:
                   ta = t["attributes"]
                   print(f"  tester: {ta.get('email')} | {ta.get('firstName')} {ta.get('lastName')} | state={ta.get('state')} | id={t['id']}")
-              # builds in group
               try:
                   gbuilds = get(f"/v1/betaGroups/{g['id']}/builds", {"limit": "10"}).get("data", [])
-              except Exception as e:
+              except SystemExit as e:
                   print(f"  (builds fetch failed: {e})")
                   gbuilds = []
               if not gbuilds:
