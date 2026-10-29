@@ -1,0 +1,214 @@
+name: ASC TestFlight public link fix
+
+# Inspects Public Link group limits + Beta App Review, then raises the
+# public-link tester cap as high as App Store Connect allows (10000).
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: app-store
+    env:
+      ASC_API_KEY_ID: ${{ secrets.ASC_API_KEY_ID }}
+      ASC_API_ISSUER_ID: ${{ secrets.ASC_API_ISSUER_ID }}
+      ASC_API_KEY_P8: ${{ secrets.ASC_API_KEY_P8 }}
+    steps:
+      - name: Diagnose and raise public link tester limit
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json, os, time, urllib.error, urllib.request
+          from urllib.parse import urlencode
+          try:
+              import jwt
+          except ImportError:
+              import subprocess, sys
+              subprocess.check_call([sys.executable, "-m", "pip", "install", "-q", "PyJWT", "cryptography"])
+              import jwt
+
+          key_id = os.environ["ASC_API_KEY_ID"].strip()
+          issuer = os.environ["ASC_API_ISSUER_ID"].strip()
+          p8 = os.environ["ASC_API_KEY_P8"].replace("\\n", "\n").strip()
+          now = int(time.time())
+          token = jwt.encode(
+              {"iss": issuer, "iat": now, "exp": now + 20 * 60, "aud": "appstoreconnect-v1"},
+              p8,
+              algorithm="ES256",
+              headers={"kid": key_id, "typ": "JWT"},
+          )
+          if isinstance(token, bytes):
+              token = token.decode()
+
+          def request(method, path, body=None, params=None, ok_statuses=()):
+              url = "https://api.appstoreconnect.apple.com" + path
+              if params:
+                  url += "?" + urlencode(params)
+              data = None
+              headers = {"Authorization": f"Bearer {token}", "Accept": "application/json"}
+              if body is not None:
+                  data = json.dumps(body).encode()
+                  headers["Content-Type"] = "application/json"
+              req = urllib.request.Request(url, data=data, headers=headers, method=method)
+              try:
+                  with urllib.request.urlopen(req, timeout=60) as resp:
+                      raw = resp.read()
+                      return json.loads(raw) if raw else {}
+              except urllib.error.HTTPError as e:
+                  err = e.read().decode("utf-8", "replace")
+                  if e.code in ok_statuses:
+                      print(f"(ignored HTTP {e.code} on {method} {path})")
+                      try:
+                          return json.loads(err)
+                      except Exception:
+                          return {"errors_raw": err}
+                  raise SystemExit(f"{method} {url} -> HTTP {e.code}\n{err}") from e
+
+          apps = request("GET", "/v1/apps", params={"limit": "200"})["data"]
+          app = next(a for a in apps if a["attributes"].get("bundleId") == "com.magnexis.maps")
+          app_id = app["id"]
+          print(f"APP={app['attributes']['name']} bundle={app['attributes']['bundleId']} id={app_id}")
+
+          builds = request("GET", "/v1/builds", params={
+              "filter[app]": app_id, "limit": "5", "sort": "-uploadedDate",
+              "include": "buildBetaDetail,preReleaseVersion",
+          })
+          build = builds["data"][0]
+          build_id = build["id"]
+          included = {x["id"]: x for x in builds.get("included", [])}
+          ver_rel = ((build.get("relationships") or {}).get("preReleaseVersion", {}) or {}).get("data") or {}
+          marketing = included.get(ver_rel.get("id"), {}).get("attributes", {}).get("version", "?")
+          print(f"BUILD marketing={marketing} number={build['attributes'].get('version')} processing={build['attributes'].get('processingState')} id={build_id}")
+
+          # Beta App Review status for this build
+          review = request("GET", f"/v1/builds/{build_id}/betaAppReviewSubmission", ok_statuses=(404,))
+          if review.get("data"):
+              ra = review["data"]["attributes"]
+              print(f"BETA_REVIEW state={ra.get('betaReviewState')} id={review['data']['id']}")
+          else:
+              print("BETA_REVIEW state=NONE (no submission resource)")
+              # Try to submit if missing
+              print("Attempting betaAppReviewSubmissions create...")
+              sub = request("POST", "/v1/betaAppReviewSubmissions", body={
+                  "data": {
+                      "type": "betaAppReviewSubmissions",
+                      "relationships": {"build": {"data": {"type": "builds", "id": build_id}}},
+                  }
+              }, ok_statuses=(409, 422))
+              print("submit_result:", json.dumps(sub, indent=2)[:1500])
+              review = request("GET", f"/v1/builds/{build_id}/betaAppReviewSubmission", ok_statuses=(404,))
+              if review.get("data"):
+                  ra = review["data"]["attributes"]
+                  print(f"BETA_REVIEW after_submit state={ra.get('betaReviewState')}")
+
+          # buildBetaDetail
+          detail = request("GET", f"/v1/builds/{build_id}/buildBetaDetail", ok_statuses=(404,))
+          if detail.get("data"):
+              da = detail["data"]["attributes"]
+              print(
+                  f"BUILD_BETA_DETAIL externalBuildState={da.get('externalBuildState')} "
+                  f"internalBuildState={da.get('internalBuildState')} "
+                  f"autoNotify={da.get('autoNotifyEnabled')}"
+              )
+
+          groups = request("GET", "/v1/betaGroups", params={"filter[app]": app_id, "limit": "50"})["data"]
+          public = None
+          for g in groups:
+              atr = g["attributes"]
+              print(
+                  f"GROUP name={atr.get('name')} internal={atr.get('isInternalGroup')} "
+                  f"publicLinkEnabled={atr.get('publicLinkEnabled')} "
+                  f"publicLinkLimitEnabled={atr.get('publicLinkLimitEnabled')} "
+                  f"publicLinkLimit={atr.get('publicLinkLimit')} "
+                  f"publicLink={atr.get('publicLink')} "
+                  f"publicLinkId={atr.get('publicLinkId')} id={g['id']}"
+              )
+              if atr.get("publicLinkId") == "C5Dgb2FY" or atr.get("name") == "Public Link":
+                  public = g
+
+          if not public:
+              raise SystemExit("Public Link group not found")
+
+          gid = public["id"]
+          # Current tester count on the public group
+          testers = request("GET", f"/v1/betaGroups/{gid}/betaTesters", params={"limit": "200"}).get("data", [])
+          print(f"PUBLIC_GROUP_TESTER_COUNT={len(testers)}")
+          for t in testers[:20]:
+              ta = t["attributes"]
+              print(f"  tester={ta.get('email')} state={ta.get('state')}")
+
+          gbuilds = request("GET", f"/v1/betaGroups/{gid}/builds", params={"limit": "10"}).get("data", [])
+          print(f"PUBLIC_GROUP_BUILD_COUNT={len(gbuilds)}")
+          for b in gbuilds:
+              print(f"  buildNumber={b['attributes'].get('version')} processing={b['attributes'].get('processingState')}")
+
+          before = public["attributes"]
+          print(
+              f"BEFORE limitEnabled={before.get('publicLinkLimitEnabled')} "
+              f"limit={before.get('publicLinkLimit')} enabled={before.get('publicLinkEnabled')}"
+          )
+
+          # Raise to App Store Connect max for public links (10,000).
+          # Prefer keeping a high explicit limit; also try disabling the limit if allowed.
+          print("Raising public link limit to 10000...")
+          patched = request("PATCH", f"/v1/betaGroups/{gid}", body={
+              "data": {
+                  "type": "betaGroups",
+                  "id": gid,
+                  "attributes": {
+                      "publicLinkEnabled": True,
+                      "publicLinkLimitEnabled": True,
+                      "publicLinkLimit": 10000,
+                  },
+              }
+          })
+          after = patched["data"]["attributes"]
+          print(
+              f"AFTER limitEnabled={after.get('publicLinkLimitEnabled')} "
+              f"limit={after.get('publicLinkLimit')} enabled={after.get('publicLinkEnabled')} "
+              f"publicLink={after.get('publicLink')} publicLinkId={after.get('publicLinkId')}"
+          )
+
+          # Also try unlimited (limitEnabled=false) if still capped somehow
+          if after.get("publicLinkLimitEnabled") and (after.get("publicLinkLimit") or 0) < 10000:
+              print("Retrying with publicLinkLimitEnabled=false (unlimited)...")
+              patched2 = request("PATCH", f"/v1/betaGroups/{gid}", body={
+                  "data": {
+                      "type": "betaGroups",
+                      "id": gid,
+                      "attributes": {
+                          "publicLinkEnabled": True,
+                          "publicLinkLimitEnabled": False,
+                      },
+                  }
+              }, ok_statuses=(409, 422))
+              if patched2.get("data"):
+                  after = patched2["data"]["attributes"]
+                  print(
+                      f"UNLIMITED_ATTEMPT limitEnabled={after.get('publicLinkLimitEnabled')} "
+                      f"limit={after.get('publicLinkLimit')} enabled={after.get('publicLinkEnabled')}"
+                  )
+              else:
+                  print("unlimited_attempt_result:", json.dumps(patched2, indent=2)[:1200])
+
+          print("\n=== SUMMARY ===")
+          print(f"public_link={after.get('publicLink')}")
+          print(f"redeem_code={after.get('publicLinkId')}")
+          print(f"link_active={after.get('publicLinkEnabled')}")
+          print(f"tester_count={len(testers)}")
+          print(f"tester_limit_enabled={after.get('publicLinkLimitEnabled')}")
+          print(f"tester_limit={after.get('publicLinkLimit')}")
+          if review.get("data"):
+              print(f"beta_review={review['data']['attributes'].get('betaReviewState')}")
+          else:
+              print("beta_review=NONE")
+          if detail.get("data"):
+              print(f"external_build_state={detail['data']['attributes'].get('externalBuildState')}")
+              print(f"internal_build_state={detail['data']['attributes'].get('internalBuildState')}")
+          PY
