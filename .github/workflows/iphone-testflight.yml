@@ -49,7 +49,8 @@ jobs:
             echo "No Xcode 26+ install found on this runner."
             exit 1
           fi
-          sudo xcode-select -s "$XCODE_APP/Contents/Developer"
+          echo "Selecting ${XCODE_APP}"
+          sudo xcode-select -s "${XCODE_APP}/Contents/Developer"
           xcodebuild -runFirstLaunch || true
           xcodebuild -version
           echo "Installed Platforms:"
@@ -60,27 +61,31 @@ jobs:
           xcrun simctl list >/dev/null 2>&1 || true
           device_platform_ready() {
             # Ready when Any iOS Device is listed without the "iOS X is not installed" error suffix.
-            xcodebuild -showdestinations -scheme App -project apps/iphone/ios/App/App.xcodeproj 2>/dev/null \
-              | grep 'name:Any iOS Device' | grep -vq 'error:'
+            local lines
+            lines="$(xcodebuild -showdestinations -scheme App -project apps/iphone/ios/App/App.xcodeproj 2>/dev/null || true)"
+            echo "$lines" | grep 'name:Any iOS Device' | grep -v 'error:' | grep -q .
           }
           if device_platform_ready; then
             echo "iOS device platform already usable for archive."
           else
-            echo "iOS device platform missing or incomplete; downloading…"
-            attempt=1
-            until device_platform_ready; do
-              if [ "$attempt" -gt 3 ]; then
-                echo "Failed to install a usable iOS device platform after $attempt attempts."
-                xcodebuild -showdestinations -scheme App -project apps/iphone/ios/App/App.xcodeproj || true
-                exit 1
-              fi
-              echo "downloadPlatform attempt $attempt…"
+            echo "iOS device platform missing or incomplete; downloading..."
+            ready=0
+            for attempt in 1 2 3; do
+              echo "downloadPlatform attempt ${attempt}"
               xcrun simctl list >/dev/null 2>&1 || true
               xcodebuild -downloadPlatform iOS || true
               xcodebuild -runFirstLaunch || true
-              attempt=$((attempt + 1))
               sleep 5
+              if device_platform_ready; then
+                ready=1
+                break
+              fi
             done
+            if [ "${ready}" -ne 1 ]; then
+              echo "Failed to install a usable iOS device platform."
+              xcodebuild -showdestinations -scheme App -project apps/iphone/ios/App/App.xcodeproj || true
+              exit 1
+            fi
             echo "iOS device platform ready after download."
           fi
           xcrun --show-sdk-version --sdk iphoneos
