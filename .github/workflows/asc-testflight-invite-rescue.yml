@@ -1,0 +1,209 @@
+name: ASC TestFlight invite rescue
+
+# Creates a fresh Internal group, assigns build 3, adds the tester, and
+# posts a new betaTesterInvitation. Also reports Beta Review / public link.
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  rescue:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: app-store
+    env:
+      ASC_API_KEY_ID: ${{ secrets.ASC_API_KEY_ID }}
+      ASC_API_ISSUER_ID: ${{ secrets.ASC_API_ISSUER_ID }}
+      ASC_API_KEY_P8: ${{ secrets.ASC_API_KEY_P8 }}
+      TARGET_EMAIL: matthewlooney5@gmail.com
+    steps:
+      - name: Rescue TestFlight invite delivery
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json, os, time, urllib.error, urllib.request
+          from urllib.parse import urlencode
+          try:
+              import jwt
+          except ImportError:
+              import subprocess, sys
+              subprocess.check_call([sys.executable, "-m", "pip", "install", "-q", "PyJWT", "cryptography"])
+              import jwt
+
+          key_id = os.environ["ASC_API_KEY_ID"].strip()
+          issuer = os.environ["ASC_API_ISSUER_ID"].strip()
+          p8 = os.environ["ASC_API_KEY_P8"].replace("\\n", "\n").strip()
+          target = os.environ["TARGET_EMAIL"].strip().lower()
+          now = int(time.time())
+          token = jwt.encode(
+              {"iss": issuer, "iat": now, "exp": now + 20 * 60, "aud": "appstoreconnect-v1"},
+              p8,
+              algorithm="ES256",
+              headers={"kid": key_id, "typ": "JWT"},
+          )
+          if isinstance(token, bytes):
+              token = token.decode()
+
+          def request(method, path, body=None, params=None, ok_statuses=()):
+              url = "https://api.appstoreconnect.apple.com" + path
+              if params:
+                  url += "?" + urlencode(params)
+              data = None
+              headers = {"Authorization": f"Bearer {token}", "Accept": "application/json"}
+              if body is not None:
+                  data = json.dumps(body).encode()
+                  headers["Content-Type"] = "application/json"
+              req = urllib.request.Request(url, data=data, headers=headers, method=method)
+              try:
+                  with urllib.request.urlopen(req, timeout=60) as resp:
+                      raw = resp.read()
+                      return json.loads(raw) if raw else {}
+              except urllib.error.HTTPError as e:
+                  err = e.read().decode("utf-8", "replace")
+                  if e.code in ok_statuses:
+                      print(f"(ignored HTTP {e.code} on {method} {path})")
+                      try:
+                          return json.loads(err)
+                      except Exception:
+                          return {"errors_raw": err}
+                  raise SystemExit(f"{method} {url} -> HTTP {e.code}\n{err}") from e
+
+          apps = request("GET", "/v1/apps", params={"limit": "200"})["data"]
+          app = next(a for a in apps if a["attributes"].get("bundleId") == "com.magnexis.maps")
+          app_id = app["id"]
+          print(f"APP={app['attributes']['name']} id={app_id}")
+
+          builds = request("GET", "/v1/builds", params={
+              "filter[app]": app_id, "limit": "5", "sort": "-uploadedDate",
+          })["data"]
+          build = builds[0]
+          build_id = build["id"]
+          print(f"BUILD number={build['attributes'].get('version')} processing={build['attributes'].get('processingState')} id={build_id}")
+
+          detail = request("GET", f"/v1/builds/{build_id}/buildBetaDetail", ok_statuses=(404,))
+          if detail.get("data"):
+              da = detail["data"]["attributes"]
+              print(f"externalBuildState={da.get('externalBuildState')} internalBuildState={da.get('internalBuildState')}")
+
+          review = request("GET", f"/v1/builds/{build_id}/betaAppReviewSubmission", ok_statuses=(404,))
+          if review.get("data"):
+              print(f"beta_review={review['data']['attributes'].get('betaReviewState')}")
+          else:
+              print("beta_review=NONE")
+
+          groups = request("GET", "/v1/betaGroups", params={"filter[app]": app_id, "limit": "50"})["data"]
+          public = next((g for g in groups if g["attributes"].get("name") == "Public Link"), None)
+          if public:
+              pa = public["attributes"]
+              print(f"public_link={pa.get('publicLink')} code={pa.get('publicLinkId')} enabled={pa.get('publicLinkEnabled')} limit={pa.get('publicLinkLimit')}")
+
+          # Fresh internal group with automatic distribution (email on add)
+          group_name = f"Internal Rescue {time.strftime('%H%M%S')}"
+          print(f"creating group {group_name}...")
+          group = request("POST", "/v1/betaGroups", body={
+              "data": {
+                  "type": "betaGroups",
+                  "attributes": {
+                      "name": group_name,
+                      "isInternalGroup": True,
+                      "hasAccessToAllBuilds": True,
+                    # Apple field for auto-distribute on internal groups:
+                      "feedbackEnabled": True,
+                  },
+                  "relationships": {
+                      "app": {"data": {"type": "apps", "id": app_id}},
+                  },
+              }
+          })["data"]
+          gid = group["id"]
+          print(f"created_group id={gid} attrs={json.dumps(group.get('attributes'), indent=2)[:500]}")
+
+          # Assign build (may 422 for auto groups)
+          assign = request("POST", f"/v1/betaGroups/{gid}/relationships/builds", body={
+              "data": [{"type": "builds", "id": build_id}]
+          }, ok_statuses=(409, 422))
+          if assign.get("errors"):
+              print("build_assign:", json.dumps(assign, indent=2)[:800])
+          else:
+              print("build_assigned_ok")
+
+          # Find or create tester, add to NEW group only (do not delete)
+          found = request("GET", "/v1/betaTesters", params={"filter[email]": target, "limit": "10"}).get("data", [])
+          if found:
+              tester_id = found[0]["id"]
+              print(f"reusing_tester id={tester_id} state={found[0]['attributes'].get('state')} full={json.dumps(found[0].get('attributes'), indent=2)}")
+          else:
+              created = request("POST", "/v1/betaTesters", body={
+                  "data": {
+                      "type": "betaTesters",
+                      "attributes": {"email": target, "firstName": "Matthew", "lastName": "Looney"},
+                      "relationships": {
+                          "betaGroups": {"data": [{"type": "betaGroups", "id": gid}]},
+                      },
+                  }
+              })
+              tester_id = created["data"]["id"]
+              print(f"created_tester id={tester_id} attrs={json.dumps(created['data'].get('attributes'), indent=2)}")
+
+          add = request("POST", f"/v1/betaGroups/{gid}/relationships/betaTesters", body={
+              "data": [{"type": "betaTesters", "id": tester_id}]
+          }, ok_statuses=(409, 422))
+          if add.get("errors"):
+              print("add_tester:", json.dumps(add, indent=2)[:800])
+          else:
+              print("add_tester_ok")
+
+          inv = request("POST", "/v1/betaTesterInvitations", body={
+              "data": {
+                  "type": "betaTesterInvitations",
+                  "relationships": {
+                      "app": {"data": {"type": "apps", "id": app_id}},
+                      "betaTester": {"data": {"type": "betaTesters", "id": tester_id}},
+                  },
+              }
+          }, ok_statuses=(409,))
+          print("invite_post:", json.dumps(inv, indent=2)[:1200])
+
+          # Also notify via buildBetaDetail autoNotify / nothing else available
+          time.sleep(2)
+          t = request("GET", f"/v1/betaTesters/{tester_id}")["data"]
+          print(f"tester_after email={t['attributes'].get('email')} state={t['attributes'].get('state')} inviteType={t['attributes'].get('inviteType')}")
+
+          gtesters = request("GET", f"/v1/betaGroups/{gid}/betaTesters", params={"limit": "20"}).get("data", [])
+          print(f"rescue_group_tester_count={len(gtesters)}")
+          for x in gtesters:
+              print(f"  {x['attributes'].get('email')} state={x['attributes'].get('state')}")
+
+          gbuilds = request("GET", f"/v1/betaGroups/{gid}/builds", params={"limit": "10"}).get("data", [])
+          print("rescue_group_builds:", [b["attributes"].get("version") for b in gbuilds])
+
+          # List ASC users that match email (helps explain missing mail)
+          try:
+              users = request("GET", "/v1/users", params={"filter[email]": target, "limit": "10"}).get("data", [])
+              print(f"asc_users_matching_email={len(users)}")
+              for u in users:
+                  ua = u["attributes"]
+                  print(f"  user={ua.get('username')} roles={ua.get('roles')} allAppsVisible={ua.get('allAppsVisible')}")
+          except SystemExit as e:
+              print(f"users_lookup_note: {e}")
+
+          print("\n=== SUMMARY ===")
+          print(f"rescue_group={group_name} id={gid}")
+          print(f"tester_email={target}")
+          print(f"tester_state={t['attributes'].get('state')}")
+          print(f"inviteType={t['attributes'].get('inviteType')}")
+          if public:
+              print(f"public_link={public['attributes'].get('publicLink')}")
+              print(f"redeem_code={public['attributes'].get('publicLinkId')}")
+          if review.get("data"):
+              print(f"beta_review={review['data']['attributes'].get('betaReviewState')}")
+          if detail.get("data"):
+              print(f"external_build_state={detail['data']['attributes'].get('externalBuildState')}")
+              print(f"internal_build_state={detail['data']['attributes'].get('internalBuildState')}")
+          print("EMAIL_NOTE=Apple does not expose a redeem URL for Internal email invites via API.")
+          print("NEXT=If email still missing: open TestFlight signed into this Apple ID and pull to refresh; ASC team members sometimes see the app without mail once INVITED.")
+          PY
