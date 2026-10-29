@@ -9,6 +9,9 @@
 [build.environment]
   NODE_VERSION = "20"
   PNPM_VERSION = "9"
+  # Production builds still need TypeScript and Next.js from devDependencies.
+  # Next.js also needs hoisted packages when installed with pnpm on Netlify.
+  PNPM_FLAGS = "--prod=false --shamefully-hoist"
 
 [functions]
   directory = ".netlify/generated-functions"
