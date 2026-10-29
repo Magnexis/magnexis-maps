@@ -14,9 +14,18 @@ export const LoginSchema = z.object({
   password: z.string().min(1),
 });
 
+export const GoogleIdTokenSchema = z
+  .object({
+    idToken: z.string().min(20).max(16_384),
+  })
+  .strict();
+
+export type GoogleIdToken = z.infer<typeof GoogleIdTokenSchema>;
+
 export const DeleteAccountSchema = z
   .object({
-    password: z.string().min(1).max(128),
+    /** Required for password accounts; omit for Google-only accounts. */
+    password: z.string().min(1).max(128).optional(),
     confirmation: z.literal("DELETE"),
   })
   .strict();

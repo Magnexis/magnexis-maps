@@ -2,6 +2,7 @@ import type { FastifyInstance } from "fastify";
 import bcrypt from "bcryptjs";
 import {
   CreateSavedPlaceSchema,
+  GoogleIdTokenSchema,
   LoginSchema,
   RegisterSchema,
   UnauthorizedError,
@@ -9,8 +10,36 @@ import {
   type UserRole,
 } from "@magnexis/shared";
 import { createSessionToken, requireAuth } from "../plugins/auth.js";
+import {
+  upsertGoogleUser,
+  verifyGoogleIdToken,
+} from "../services/google-oauth.js";
 
 export async function registerAuthRoutes(app: FastifyInstance) {
+  app.get("/api/v1/auth/google/status", async () => ({
+    configured: Boolean(app.config.googleOauthClientId),
+    clientId: app.config.googleOauthClientId
+      ? app.config.googleOauthClientId
+      : null,
+  }));
+
+  app.post("/api/v1/auth/google", async (request, reply) => {
+    const clientId = app.config.googleOauthClientId;
+    if (!clientId) {
+      throw new ValidationError(
+        "Google sign-in is not configured. Set GOOGLE_OAUTH_CLIENT_ID on the API.",
+      );
+    }
+    const body = GoogleIdTokenSchema.parse(request.body);
+    const identity = await verifyGoogleIdToken(body.idToken, clientId);
+    const session = await upsertGoogleUser(
+      app.db,
+      identity,
+      app.config.jwtSecret,
+    );
+    return reply.send(session);
+  });
+
   app.post("/api/v1/auth/register", async (request, reply) => {
     const body = RegisterSchema.parse(request.body);
     const existing = await app.db.query(`SELECT id FROM users WHERE email = $1`, [
@@ -67,7 +96,7 @@ export async function registerAuthRoutes(app: FastifyInstance) {
       display_name: string;
       email_verified: boolean;
       created_at: Date;
-      password_hash: string;
+      password_hash: string | null;
       roles: string[] | null;
     }>(
       `SELECT u.id, u.email, u.display_name, u.email_verified, u.created_at, u.password_hash,
@@ -80,6 +109,11 @@ export async function registerAuthRoutes(app: FastifyInstance) {
     );
     const row = result.rows[0];
     if (!row) throw new UnauthorizedError("Invalid email or password");
+    if (!row.password_hash) {
+      throw new ValidationError(
+        "This account uses Google sign-in. Continue with Google instead of a password.",
+      );
+    }
 
     const ok = await bcrypt.compare(body.password, row.password_hash);
     if (!ok) throw new UnauthorizedError("Invalid email or password");

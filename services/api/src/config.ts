@@ -21,11 +21,16 @@ const ConfigSchema = z.object({
   rateLimitWindowMs: z.coerce.number().default(60_000),
   guestReportRateLimitMax: z.coerce.number().default(5),
   logLevel: z.string().default("info"),
+  googleOauthClientId: z.string().optional(),
 });
 
 export type AppConfig = z.infer<typeof ConfigSchema>;
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
+  const googleOauthClientId =
+    env.GOOGLE_OAUTH_CLIENT_ID?.trim() ||
+    env.NEXT_PUBLIC_GOOGLE_OAUTH_CLIENT_ID?.trim() ||
+    undefined;
   return ConfigSchema.parse({
     nodeEnv: env.NODE_ENV,
     host: env.API_HOST,
@@ -38,5 +43,6 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     rateLimitWindowMs: env.RATE_LIMIT_WINDOW_MS,
     guestReportRateLimitMax: env.GUEST_REPORT_RATE_LIMIT_MAX,
     logLevel: env.LOG_LEVEL,
+    googleOauthClientId: googleOauthClientId || undefined,
   });
 }

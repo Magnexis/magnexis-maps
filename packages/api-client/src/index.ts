@@ -171,6 +171,17 @@ export function createApiClient(options: ApiClientOptions) {
         body: JSON.stringify(body),
       }),
 
+    googleAuthStatus: () =>
+      request<{ configured: boolean; clientId: string | null }>(
+        "/api/v1/auth/google/status",
+      ),
+
+    loginWithGoogle: (body: { idToken: string }) =>
+      request<{ user: UserPublic; token: string }>("/api/v1/auth/google", {
+        method: "POST",
+        body: JSON.stringify(body),
+      }),
+
     me: () => request<{ user: UserPublic }>("/api/v1/me"),
 
     deleteAccount: async (body: DeleteAccount): Promise<{ deleted: true }> => {

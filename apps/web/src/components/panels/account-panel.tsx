@@ -6,6 +6,10 @@ import { MagnexisApiError } from "@magnexis/api-client";
 import { getApiClient } from "@/lib/api";
 import { useAppStore } from "@/lib/store";
 import { clearDeletedAccountDeviceData } from "@/lib/account-device-data";
+import {
+  publicGoogleClientId,
+  requestGoogleIdToken,
+} from "@/lib/google-oauth";
 
 export function AccountPanel({ hideHeader = false }: { hideHeader?: boolean }) {
   const [mode, setMode] = useState<"login" | "register">("login");
@@ -15,26 +19,46 @@ export function AccountPanel({ hideHeader = false }: { hideHeader?: boolean }) {
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [userLabel, setUserLabel] = useState<string | null>(null);
+  const [authProvider, setAuthProvider] = useState<"password" | "google">(
+    "password",
+  );
   const [pending, setPending] = useState<
-    "session" | "sign-in" | "delete" | null
+    "session" | "sign-in" | "google" | "delete" | null
   >("session");
   const [confirmingDeletion, setConfirmingDeletion] = useState(false);
   const [deletePassword, setDeletePassword] = useState("");
   const [confirmation, setConfirmation] = useState("");
   const [clearLocalPlaces, setClearLocalPlaces] = useState(true);
+  const [googleClientId, setGoogleClientId] = useState<string | null>(
+    publicGoogleClientId(),
+  );
 
   useEffect(() => {
     let active = true;
     async function restoreSession() {
       try {
+        const status = await getApiClient().googleAuthStatus();
+        if (active && status.configured && status.clientId) {
+          setGoogleClientId(status.clientId);
+        }
+      } catch {
+        /* Google button stays hidden when status is unavailable. */
+      }
+
+      try {
         if (!window.localStorage.getItem("magnexis_token")) return;
         const { user } = await getApiClient().me();
-        if (active) setUserLabel(user.displayName);
+        if (active) {
+          setUserLabel(user.displayName);
+          const stored = window.localStorage.getItem("magnexis_auth_provider");
+          setAuthProvider(stored === "google" ? "google" : "password");
+        }
       } catch (failure) {
         if (!active) return;
         if (failure instanceof MagnexisApiError && failure.status === 401) {
           try {
             window.localStorage.removeItem("magnexis_token");
+            window.localStorage.removeItem("magnexis_auth_provider");
           } catch {
             /* Server already rejects this session. */
           }
@@ -67,6 +91,8 @@ export function AccountPanel({ hideHeader = false }: { hideHeader?: boolean }) {
           ? await api.login({ email, password })
           : await api.register({ email, password, displayName });
       window.localStorage.setItem("magnexis_token", result.token);
+      window.localStorage.setItem("magnexis_auth_provider", "password");
+      setAuthProvider("password");
       setUserLabel(result.user.displayName);
       setMessage(`Signed in as ${result.user.displayName}`);
       setPassword("");
@@ -75,6 +101,32 @@ export function AccountPanel({ hideHeader = false }: { hideHeader?: boolean }) {
         failure instanceof MagnexisApiError
           ? failure.message
           : "Could not sign in. Check your connection and device storage, then try again.",
+      );
+    } finally {
+      setPending(null);
+    }
+  }
+
+  async function signInWithGoogle() {
+    if (pending || !googleClientId) return;
+    setPending("google");
+    setError(null);
+    setMessage(null);
+    try {
+      const idToken = await requestGoogleIdToken(googleClientId);
+      const result = await getApiClient().loginWithGoogle({ idToken });
+      window.localStorage.setItem("magnexis_token", result.token);
+      window.localStorage.setItem("magnexis_auth_provider", "google");
+      setAuthProvider("google");
+      setUserLabel(result.user.displayName);
+      setMessage(`Signed in as ${result.user.displayName}`);
+    } catch (failure) {
+      setError(
+        failure instanceof MagnexisApiError
+          ? failure.message
+          : failure instanceof Error
+            ? failure.message
+            : "Google sign-in failed. Try again or use email and password.",
       );
     } finally {
       setPending(null);
@@ -91,7 +143,9 @@ export function AccountPanel({ hideHeader = false }: { hideHeader?: boolean }) {
   function signOut() {
     try {
       window.localStorage.removeItem("magnexis_token");
+      window.localStorage.removeItem("magnexis_auth_provider");
       setUserLabel(null);
+      setAuthProvider("password");
       setPassword("");
       cancelDeletion();
       setMessage("Signed out.");
@@ -104,13 +158,19 @@ export function AccountPanel({ hideHeader = false }: { hideHeader?: boolean }) {
 
   async function removeAccount(event: FormEvent) {
     event.preventDefault();
-    if (pending || !deletePassword || confirmation !== "DELETE") return;
+    const needsPassword = authProvider !== "google";
+    if (
+      pending ||
+      confirmation !== "DELETE" ||
+      (needsPassword && !deletePassword)
+    )
+      return;
     setPending("delete");
     setError(null);
     setMessage(null);
     try {
       await getApiClient().deleteAccount({
-        password: deletePassword,
+        ...(needsPassword ? { password: deletePassword } : {}),
         confirmation: "DELETE",
       });
     } catch (failure) {
@@ -237,18 +297,25 @@ export function AccountPanel({ hideHeader = false }: { hideHeader?: boolean }) {
                   searches from this device.
                 </span>
               </label>
-              <label className="block space-y-1 text-sm">
-                <span>Current password</span>
-                <Input
-                  type="password"
-                  autoComplete="current-password"
-                  maxLength={128}
-                  required
-                  value={deletePassword}
-                  disabled={Boolean(pending)}
-                  onChange={(event) => setDeletePassword(event.target.value)}
-                />
-              </label>
+              {authProvider === "google" ? (
+                <p className="text-sm text-[var(--mx-text-muted)]">
+                  This account uses Google sign-in. Type DELETE to confirm —
+                  no password is required.
+                </p>
+              ) : (
+                <label className="block space-y-1 text-sm">
+                  <span>Current password</span>
+                  <Input
+                    type="password"
+                    autoComplete="current-password"
+                    maxLength={128}
+                    required
+                    value={deletePassword}
+                    disabled={Boolean(pending)}
+                    onChange={(event) => setDeletePassword(event.target.value)}
+                  />
+                </label>
+              )}
               <label className="block space-y-1 text-sm">
                 <span>Type DELETE to confirm</span>
                 <Input
@@ -266,7 +333,7 @@ export function AccountPanel({ hideHeader = false }: { hideHeader?: boolean }) {
                   variant="danger"
                   disabled={
                     Boolean(pending) ||
-                    !deletePassword ||
+                    (authProvider !== "google" && !deletePassword) ||
                     confirmation !== "DELETE"
                   }
                   aria-busy={pending === "delete"}
@@ -362,6 +429,30 @@ export function AccountPanel({ hideHeader = false }: { hideHeader?: boolean }) {
                 ? "Sign in"
                 : "Create account"}
           </Button>
+          {googleClientId ? (
+            <>
+              <div
+                className="flex items-center gap-3 text-xs text-[var(--mx-text-muted)]"
+                role="separator"
+              >
+                <span className="h-px flex-1 bg-[var(--mx-border)]" />
+                or
+                <span className="h-px flex-1 bg-[var(--mx-border)]" />
+              </div>
+              <Button
+                type="button"
+                variant="secondary"
+                className="w-full"
+                disabled={Boolean(pending)}
+                aria-busy={pending === "google"}
+                onClick={() => void signInWithGoogle()}
+              >
+                {pending === "google"
+                  ? "Waiting for Google…"
+                  : "Continue with Google"}
+              </Button>
+            </>
+          ) : null}
         </form>
       )}
       {message ? (

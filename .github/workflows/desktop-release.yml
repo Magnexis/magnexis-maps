@@ -1,0 +1,34 @@
+# Create a GitHub Release when a desktop-v* tag is pushed (e.g. desktop-v1.0.0).
+name: Desktop release
+
+on:
+  push:
+    tags:
+      - "desktop-v*"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="${GITHUB_REF_NAME}"
+          VERSION="${TAG#desktop-v}"
+          NOTES="Magnexis Maps desktop ${VERSION}
+
+          Build Windows installers locally:
+          \`\`\`powershell
+          pnpm --filter @magnexis/desktop build:windows
+          \`\`\`
+
+          Unsigned NSIS/MSI artifacts appear under
+          \`apps/desktop/src-tauri/target/release/bundle/\`.
+          Code signing and SmartScreen reputation are separate release concerns."
+          gh release view "$TAG" >/dev/null 2>&1 || \
+            gh release create "$TAG" --title "Desktop ${VERSION}" --notes "$NOTES"

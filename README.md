@@ -99,8 +99,23 @@ Copy [`.env.example`](./.env.example) → `.env`. **Never commit `.env` or API k
 | `MAPTILER_KEY` / `NEXT_PUBLIC_MAPTILER_KEY` | API / Web | Terrain & satellite styles |
 | `NEXT_PUBLIC_MAPILLARY_ACCESS_TOKEN` | Web | Optional street-view coverage |
 | `GOOGLE_MAPS_API_KEY` | **API only** | Optional Places photos / Street View Static proxy — `pnpm secrets:google` |
+| `GOOGLE_OAUTH_CLIENT_ID` / `NEXT_PUBLIC_GOOGLE_OAUTH_CLIENT_ID` | API / Web | Sign in with Google (ID token verification) |
 
 Missing routing/geocoding credentials return clear `503 PROVIDER_UNAVAILABLE` responses — the API will not invent results.
+
+### GitHub Packages (API client)
+
+Install the typed API client from this repository’s packages:
+
+```bash
+# .npmrc
+@magnexis:registry=https://npm.pkg.github.com
+//npm.pkg.github.com/:_authToken=YOUR_GITHUB_TOKEN
+
+npm install @magnexis/api-client@1.0.0
+```
+
+Publish is driven by `.github/workflows/publish-packages.yml` on `api-v*` tags (or manual dispatch). Desktop 1.0 releases use `desktop-v*` tags.
 
 **Security:** keep commercial keys server-side. Prefer `TOMTOM_API_KEY` + traffic proxy over `NEXT_PUBLIC_TOMTOM_KEY`. Do not put production Google keys in `NEXT_PUBLIC_*`.
 

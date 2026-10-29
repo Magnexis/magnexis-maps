@@ -10,7 +10,7 @@ import {
 export async function deleteAccount(
   pool: Pool,
   userId: string,
-  password: string,
+  password: string | undefined,
 ): Promise<void> {
   let client: PoolClient | undefined;
   let transaction = false;
@@ -20,17 +20,36 @@ export async function deleteAccount(
     await client.query("BEGIN");
     transaction = true;
     // Locks the account against concurrent deletions and new FK-linked records.
-    const account = await client.query<{ password_hash: string }>(
-      "SELECT password_hash FROM users WHERE id = $1 AND deleted_at IS NULL FOR UPDATE",
+    const account = await client.query<{
+      password_hash: string | null;
+      google_sub: string | null;
+    }>(
+      "SELECT password_hash, google_sub FROM users WHERE id = $1 AND deleted_at IS NULL FOR UPDATE",
       [userId],
     );
     if (!account.rows[0])
       throw new UnauthorizedError(
         "Your session is no longer active. Sign in again.",
       );
-    if (!(await bcrypt.compare(password, account.rows[0].password_hash))) {
+    const { password_hash: hash, google_sub: googleSub } = account.rows[0];
+    if (hash) {
+      if (!password) {
+        throw new ForbiddenError(
+          "Enter your current password to delete this account.",
+        );
+      }
+      if (!(await bcrypt.compare(password, hash))) {
+        throw new ForbiddenError(
+          "The password did not match. Your account has not been deleted.",
+        );
+      }
+    } else if (!googleSub) {
       throw new ForbiddenError(
-        "The password did not match. Your account has not been deleted.",
+        "This account cannot be deleted with the provided confirmation.",
+      );
+    } else if (password) {
+      throw new ForbiddenError(
+        "This Google account has no password. Confirm with DELETE only.",
       );
     }
 

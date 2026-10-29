@@ -14,7 +14,7 @@ export async function registerAccountDeletionRoutes(
       const body = DeleteAccountSchema.safeParse(request.body);
       if (!body.success)
         throw new ValidationError(
-          "Enter your current password and type DELETE to confirm account deletion.",
+          "Type DELETE to confirm account deletion. Password accounts must also send the current password.",
         );
       await deleteAccount(app.db, user.id, body.data.password);
       return { deleted: true as const };
