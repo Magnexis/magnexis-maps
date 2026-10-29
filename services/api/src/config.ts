@@ -24,6 +24,8 @@ const ConfigSchema = z.object({
   googleOauthClientId: z.string().optional(),
   githubOauthClientId: z.string().optional(),
   githubOauthClientSecret: z.string().optional(),
+  gitlabOauthClientId: z.string().optional(),
+  gitlabOauthClientSecret: z.string().optional(),
 });
 
 export type AppConfig = z.infer<typeof ConfigSchema>;
@@ -38,6 +40,11 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     env.NEXT_PUBLIC_GITHUB_OAUTH_CLIENT_ID?.trim() ||
     undefined;
   const githubOauthClientSecret = env.GITHUB_OAUTH_CLIENT_SECRET?.trim() || undefined;
+  const gitlabOauthClientId =
+    env.GITLAB_OAUTH_CLIENT_ID?.trim() ||
+    env.NEXT_PUBLIC_GITLAB_OAUTH_CLIENT_ID?.trim() ||
+    undefined;
+  const gitlabOauthClientSecret = env.GITLAB_OAUTH_CLIENT_SECRET?.trim() || undefined;
   return ConfigSchema.parse({
     nodeEnv: env.NODE_ENV,
     host: env.API_HOST,
@@ -53,5 +60,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     googleOauthClientId: googleOauthClientId || undefined,
     githubOauthClientId: githubOauthClientId || undefined,
     githubOauthClientSecret: githubOauthClientSecret || undefined,
+    gitlabOauthClientId: gitlabOauthClientId || undefined,
+    gitlabOauthClientSecret: gitlabOauthClientSecret || undefined,
   });
 }

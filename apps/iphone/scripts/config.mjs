@@ -65,6 +65,10 @@ export function buildEnvironment(env, development = false) {
     env.NEXT_PUBLIC_GITHUB_OAUTH_CLIENT_ID?.trim() ||
     env.GITHUB_OAUTH_CLIENT_ID?.trim() ||
     "";
+  const gitlabOauth =
+    env.NEXT_PUBLIC_GITLAB_OAUTH_CLIENT_ID?.trim() ||
+    env.GITLAB_OAUTH_CLIENT_ID?.trim() ||
+    "";
   const mapillary =
     env.NEXT_PUBLIC_MAPILLARY_ACCESS_TOKEN?.trim() ||
     env.MAPILLARY_ACCESS_TOKEN?.trim() ||
@@ -79,12 +83,15 @@ export function buildEnvironment(env, development = false) {
     NEXT_PUBLIC_PRIVACY_URL: privacy,
     NEXT_PUBLIC_SUPPORT_URL: support,
     // Bake public OAuth client IDs + Mapillary into the static Capacitor export.
-    // Secrets (GitHub client secret, Google Maps server key) stay on the API/Netlify.
+    // Secrets (OAuth client secrets, Google Maps server key) stay on the API/Netlify.
     ...(googleOauth
       ? { NEXT_PUBLIC_GOOGLE_OAUTH_CLIENT_ID: googleOauth }
       : {}),
     ...(githubOauth
       ? { NEXT_PUBLIC_GITHUB_OAUTH_CLIENT_ID: githubOauth }
+      : {}),
+    ...(gitlabOauth
+      ? { NEXT_PUBLIC_GITLAB_OAUTH_CLIENT_ID: gitlabOauth }
       : {}),
     ...(mapillary
       ? { NEXT_PUBLIC_MAPILLARY_ACCESS_TOKEN: mapillary }

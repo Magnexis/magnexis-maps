@@ -2,6 +2,7 @@ import type { FastifyInstance } from "fastify";
 import bcrypt from "bcryptjs";
 import {
   CreateSavedPlaceSchema,
+  GitLabAuthCodeSchema,
   GitHubAuthCodeSchema,
   GoogleIdTokenSchema,
   LoginSchema,
@@ -19,6 +20,10 @@ import {
   exchangeGitHubCode,
   upsertGitHubUser,
 } from "../services/github-oauth.js";
+import {
+  exchangeGitLabCode,
+  upsertGitLabUser,
+} from "../services/gitlab-oauth.js";
 
 export async function registerAuthRoutes(app: FastifyInstance) {
   app.get("/api/v1/auth/google/status", async () => ({
@@ -70,6 +75,38 @@ export async function registerAuthRoutes(app: FastifyInstance) {
       redirectUri: body.redirectUri,
     });
     const session = await upsertGitHubUser(
+      app.db,
+      identity,
+      app.config.jwtSecret,
+    );
+    return reply.send(session);
+  });
+
+  app.get("/api/v1/auth/gitlab/status", async () => ({
+    configured: Boolean(
+      app.config.gitlabOauthClientId && app.config.gitlabOauthClientSecret,
+    ),
+    clientId: app.config.gitlabOauthClientId
+      ? app.config.gitlabOauthClientId
+      : null,
+  }));
+
+  app.post("/api/v1/auth/gitlab", async (request, reply) => {
+    const clientId = app.config.gitlabOauthClientId;
+    const clientSecret = app.config.gitlabOauthClientSecret;
+    if (!clientId || !clientSecret) {
+      throw new ValidationError(
+        "GitLab sign-in is not configured. Set GITLAB_OAUTH_CLIENT_ID and GITLAB_OAUTH_CLIENT_SECRET on the API.",
+      );
+    }
+    const body = GitLabAuthCodeSchema.parse(request.body);
+    const identity = await exchangeGitLabCode({
+      code: body.code,
+      clientId,
+      clientSecret,
+      redirectUri: body.redirectUri,
+    });
+    const session = await upsertGitLabUser(
       app.db,
       identity,
       app.config.jwtSecret,
@@ -149,7 +186,7 @@ export async function registerAuthRoutes(app: FastifyInstance) {
     if (!row) throw new UnauthorizedError("Invalid email or password");
     if (!row.password_hash) {
       throw new ValidationError(
-        "This account uses Google or GitHub sign-in. Continue with that provider instead of a password.",
+        "This account uses OAuth sign-in. Continue with that provider instead of a password.",
       );
     }
 

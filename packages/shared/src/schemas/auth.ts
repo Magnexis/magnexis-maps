@@ -31,6 +31,15 @@ export const GitHubAuthCodeSchema = z
 
 export type GitHubAuthCode = z.infer<typeof GitHubAuthCodeSchema>;
 
+export const GitLabAuthCodeSchema = z
+  .object({
+    code: z.string().min(8).max(512),
+    redirectUri: z.string().url().max(2048),
+  })
+  .strict();
+
+export type GitLabAuthCode = z.infer<typeof GitLabAuthCodeSchema>;
+
 export const DeleteAccountSchema = z
   .object({
     /** Required for password accounts; omit for OAuth-only accounts. */

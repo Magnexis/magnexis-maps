@@ -103,7 +103,7 @@ Full side-by-side: [docs/google-maps-parity.md](./docs/google-maps-parity.md).
 ### Accounts
 
 - Email and password registration / sign-in
-- Optional **Sign in with Google** and **Sign in with GitHub** when configured
+- Optional **Sign in with Google**, **GitHub**, and **GitLab** when configured
 - Saved places and account deletion with explicit confirmation
 
 ---
@@ -244,7 +244,7 @@ The Magnexis Maps API is a versioned HTTPS JSON API (`/api/v1`) with OpenAPI doc
 | **Geocoding** | Forward / reverse when a provider is configured |
 | **Routing** | Multi-stop routes with provider alternatives |
 | **Reports & incidents** | Community reports and public incident listings |
-| **Auth & account** | Register, login, Google / GitHub OAuth, profile, account deletion |
+| **Auth & account** | Register, login, Google / GitHub / GitLab OAuth, profile, account deletion |
 | **Saved places** | Authenticated favorites |
 | **Map styles** | Style catalog and availability |
 | **Admin** | Moderation queue and overview (authorized roles) |
@@ -273,7 +273,7 @@ Integrators can consume the same contracts used by the Magnexis clients via **Gi
 npm install @magnexis/shared@1.1.0 @magnexis/api-client@1.1.0
 ```
 
-Current published line includes search, routing, Google and GitHub sign-in helpers, saved places, and account deletion.
+Current published line includes search, routing, Google, GitHub, and GitLab sign-in helpers, saved places, and account deletion.
 
 ---
 
@@ -325,7 +325,7 @@ Implementation lives in `@magnexis/map-styles` (paint engine, RouteShield, GeoSy
 | **MapTiler** | Optional terrain, satellite, and geocoding |
 | **Mapillary** | Optional street-level imagery coverage |
 | **Google Maps Platform** | Optional Places photos and Street View Static (server proxy) |
-| **Google / GitHub OAuth** | Optional account sign-in |
+| **Google / GitHub / GitLab OAuth** | Optional account sign-in |
 
 Production deployments must retain required attribution. License and source notes: [DATA_SOURCES.md](./DATA_SOURCES.md).
 

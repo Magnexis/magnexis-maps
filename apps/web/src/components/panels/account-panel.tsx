@@ -14,12 +14,18 @@ import {
   beginGitHubSignIn,
   publicGitHubClientId,
 } from "@/lib/github-oauth";
+import {
+  beginGitLabSignIn,
+  publicGitLabClientId,
+} from "@/lib/gitlab-oauth";
 
-type AuthProvider = "password" | "google" | "github";
+type AuthProvider = "password" | "google" | "github" | "gitlab";
 
 function readStoredAuthProvider(): AuthProvider {
   const stored = window.localStorage.getItem("magnexis_auth_provider");
-  if (stored === "google" || stored === "github") return stored;
+  if (stored === "google" || stored === "github" || stored === "gitlab") {
+    return stored;
+  }
   return "password";
 }
 
@@ -33,7 +39,7 @@ export function AccountPanel({ hideHeader = false }: { hideHeader?: boolean }) {
   const [userLabel, setUserLabel] = useState<string | null>(null);
   const [authProvider, setAuthProvider] = useState<AuthProvider>("password");
   const [pending, setPending] = useState<
-    "session" | "sign-in" | "google" | "github" | "delete" | null
+    "session" | "sign-in" | "google" | "github" | "gitlab" | "delete" | null
   >("session");
   const [confirmingDeletion, setConfirmingDeletion] = useState(false);
   const [deletePassword, setDeletePassword] = useState("");
@@ -43,6 +49,7 @@ export function AccountPanel({ hideHeader = false }: { hideHeader?: boolean }) {
     publicGoogleClientId(),
   );
   const [githubClientId, setGithubClientId] = useState<string | null>(null);
+  const [gitlabClientId, setGitlabClientId] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -67,6 +74,19 @@ export function AccountPanel({ hideHeader = false }: { hideHeader?: boolean }) {
       } catch {
         /* Fall back to public client id only when status is unavailable. */
         if (active) setGithubClientId(publicGitHubClientId());
+      }
+
+      try {
+        const status = await getApiClient().gitlabAuthStatus();
+        if (active && status.configured && status.clientId) {
+          setGitlabClientId(status.clientId);
+        } else if (active) {
+          // Client ID alone is not enough — API also needs the client secret.
+          setGitlabClientId(null);
+        }
+      } catch {
+        /* Fall back to public client id only when status is unavailable. */
+        if (active) setGitlabClientId(publicGitLabClientId());
       }
 
       try {
@@ -173,6 +193,23 @@ export function AccountPanel({ hideHeader = false }: { hideHeader?: boolean }) {
     }
   }
 
+  function signInWithGitLab() {
+    if (pending || !gitlabClientId) return;
+    setPending("gitlab");
+    setError(null);
+    setMessage(null);
+    try {
+      beginGitLabSignIn(gitlabClientId);
+    } catch (failure) {
+      setPending(null);
+      setError(
+        failure instanceof Error
+          ? failure.message
+          : "GitLab sign-in failed. Try again or use email and password.",
+      );
+    }
+  }
+
   function cancelDeletion() {
     setConfirmingDeletion(false);
     setDeletePassword("");
@@ -199,7 +236,9 @@ export function AccountPanel({ hideHeader = false }: { hideHeader?: boolean }) {
   async function removeAccount(event: FormEvent) {
     event.preventDefault();
     const needsPassword =
-      authProvider !== "google" && authProvider !== "github";
+      authProvider !== "google" &&
+      authProvider !== "github" &&
+      authProvider !== "gitlab";
     if (
       pending ||
       confirmation !== "DELETE" ||
@@ -338,10 +377,16 @@ export function AccountPanel({ hideHeader = false }: { hideHeader?: boolean }) {
                   searches from this device.
                 </span>
               </label>
-              {authProvider === "google" || authProvider === "github" ? (
+              {authProvider === "google" ||
+              authProvider === "github" ||
+              authProvider === "gitlab" ? (
                 <p className="text-sm text-[var(--mx-text-muted)]">
                   This account uses{" "}
-                  {authProvider === "google" ? "Google" : "GitHub"} sign-in.
+                  {authProvider === "google"
+                    ? "Google"
+                    : authProvider === "github"
+                      ? "GitHub"
+                      : "GitLab"} sign-in.
                   Type DELETE to confirm — no password is required.
                 </p>
               ) : (
@@ -377,6 +422,7 @@ export function AccountPanel({ hideHeader = false }: { hideHeader?: boolean }) {
                     Boolean(pending) ||
                     (authProvider !== "google" &&
                       authProvider !== "github" &&
+                      authProvider !== "gitlab" &&
                       !deletePassword) ||
                     confirmation !== "DELETE"
                   }
@@ -473,7 +519,7 @@ export function AccountPanel({ hideHeader = false }: { hideHeader?: boolean }) {
                 ? "Sign in"
                 : "Create account"}
           </Button>
-          {googleClientId || githubClientId ? (
+          {googleClientId || githubClientId || gitlabClientId ? (
             <>
               <div
                 className="flex items-center gap-3 text-xs text-[var(--mx-text-muted)]"
@@ -509,6 +555,20 @@ export function AccountPanel({ hideHeader = false }: { hideHeader?: boolean }) {
                   {pending === "github"
                     ? "Redirecting to GitHub…"
                     : "Continue with GitHub"}
+                </Button>
+              ) : null}
+              {gitlabClientId ? (
+                <Button
+                  type="button"
+                  variant="secondary"
+                  className="w-full"
+                  disabled={Boolean(pending)}
+                  aria-busy={pending === "gitlab"}
+                  onClick={signInWithGitLab}
+                >
+                  {pending === "gitlab"
+                    ? "Redirecting to GitLab…"
+                    : "Continue with GitLab"}
                 </Button>
               ) : null}
             </>

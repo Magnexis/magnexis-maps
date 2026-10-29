@@ -24,8 +24,9 @@ export async function deleteAccount(
       password_hash: string | null;
       google_sub: string | null;
       github_id: string | null;
+      gitlab_id: string | null;
     }>(
-      "SELECT password_hash, google_sub, github_id FROM users WHERE id = $1 AND deleted_at IS NULL FOR UPDATE",
+      "SELECT password_hash, google_sub, github_id, gitlab_id FROM users WHERE id = $1 AND deleted_at IS NULL FOR UPDATE",
       [userId],
     );
     if (!account.rows[0])
@@ -36,8 +37,9 @@ export async function deleteAccount(
       password_hash: hash,
       google_sub: googleSub,
       github_id: githubId,
+      gitlab_id: gitlabId,
     } = account.rows[0];
-    const oauthOnly = Boolean(googleSub || githubId);
+    const oauthOnly = Boolean(googleSub || githubId || gitlabId);
     if (hash) {
       if (!password) {
         throw new ForbiddenError(

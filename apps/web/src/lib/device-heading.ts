@@ -55,9 +55,10 @@ export function headingFromDeviceOrientation(
     typeof event.alpha === "number" &&
     Number.isFinite(event.alpha)
   ) {
-    // alpha is clockwise from north in absolute mode on most browsers —
-    // invert so 0° = north for our upward-facing cone.
-    return normalizeHeadingDegrees(360 - event.alpha);
+    // In absolute mode alpha already advances clockwise from north, which is
+    // the convention MapLibre uses for Marker#setRotation. Inverting it made
+    // east/west facing cones point in the opposite direction.
+    return normalizeHeadingDegrees(event.alpha);
   }
   return undefined;
 }

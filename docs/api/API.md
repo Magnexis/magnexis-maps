@@ -26,6 +26,8 @@ Version prefix: `/api/v1`
 | POST | `/api/v1/auth/google` | No | Google ID token → session |
 | GET | `/api/v1/auth/github/status` | No | Whether GitHub sign-in is configured |
 | POST | `/api/v1/auth/github` | No | GitHub OAuth code + redirectUri → session |
+| GET | `/api/v1/auth/gitlab/status` | No | Whether GitLab sign-in is configured |
+| POST | `/api/v1/auth/gitlab` | No | GitLab OAuth code + redirectUri → session |
 | GET | `/api/v1/me` | User | |
 | DELETE | `/api/v1/me` | User | Password (or OAuth-only) + exact `DELETE` confirmation; transactional account deletion |
 | GET/POST | `/api/v1/me/saved-places` | User | |

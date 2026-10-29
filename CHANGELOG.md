@@ -3,7 +3,7 @@
 ## 1.4.0 — Chromatic (in progress)
 
 ### Sign-in providers
-- Google OAuth (GIS ID token) and GitHub OAuth (authorization code) alongside email/password; OAuth-only accounts delete with `DELETE` confirmation alone.
+- Google OAuth (GIS ID token), GitHub OAuth, and GitLab OAuth (authorization code) alongside email/password; OAuth-only accounts delete with `DELETE` confirmation alone.
 
 ### Account lifecycle, shared routes and hosted release
 - Implemented password-confirmed, transactional account deletion with optional current-device cleanup and real PostgreSQL integration coverage; fixed authentication hooks not reaching sibling API routes.
