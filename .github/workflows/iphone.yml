@@ -107,30 +107,49 @@ jobs:
           set -euo pipefail
           echo "Available Xcode apps:"
           ls -d /Applications/Xcode*.app 2>/dev/null || true
-          DEVELOPER_DIR=""
-          for candidate in /Applications/Xcode_26*.app /Applications/Xcode.app; do
-            if [ -d "$candidate/Contents/Developer" ]; then
-              DEVELOPER_DIR="$candidate/Contents/Developer"
-              break
-            fi
-          done
-          if [ -z "$DEVELOPER_DIR" ]; then
+          # Glob order picks Xcode_26.0.1 first; prefer the newest 26.x on the image.
+          XCODE_APP="$(ls -d /Applications/Xcode_26*.app 2>/dev/null | sort -V | tail -n 1 || true)"
+          if [ -z "${XCODE_APP}" ] && [ -d /Applications/Xcode.app ]; then
+            XCODE_APP=/Applications/Xcode.app
+          fi
+          if [ -z "${XCODE_APP}" ]; then
             echo "No Xcode 26+ install found on this runner."
             exit 1
           fi
-          sudo xcode-select -s "$DEVELOPER_DIR"
+          sudo xcode-select -s "$XCODE_APP/Contents/Developer"
+          xcodebuild -runFirstLaunch || true
           xcodebuild -version
-          # Xcode 26 on GH runners often ships without the iOS *device* platform preinstalled.
-          # Archive fails with: "iOS 26.0 is not installed … Xcode > Settings > Components".
-          echo "Installed Platforms before download:"
+          echo "Installed Platforms:"
           ls "$(xcode-select -p)/Platforms" 2>/dev/null || true
           xcodebuild -showsdks || true
-          echo "Ensuring iOS device platform is available…"
-          xcodebuild -downloadPlatform iOS
-          xcodebuild -runFirstLaunch || true
-          echo "Installed Platforms after download:"
-          ls "$(xcode-select -p)/Platforms" 2>/dev/null || true
-          xcodebuild -showsdks
+          # Warm CoreSimulator before -downloadPlatform; otherwise GH runners often fail with
+          # "Unable to connect to simulator" (exit 70). See actions/runner-images#12862 / #13459.
+          xcrun simctl list >/dev/null 2>&1 || true
+          device_platform_ready() {
+            # Ready when Any iOS Device is listed without the "iOS X is not installed" error suffix.
+            xcodebuild -showdestinations -scheme App -project apps/iphone/ios/App/App.xcodeproj 2>/dev/null \
+              | grep 'name:Any iOS Device' | grep -vq 'error:'
+          }
+          if device_platform_ready; then
+            echo "iOS device platform already usable for archive."
+          else
+            echo "iOS device platform missing or incomplete; downloading…"
+            attempt=1
+            until device_platform_ready; do
+              if [ "$attempt" -gt 3 ]; then
+                echo "Failed to install a usable iOS device platform after $attempt attempts."
+                xcodebuild -showdestinations -scheme App -project apps/iphone/ios/App/App.xcodeproj || true
+                exit 1
+              fi
+              echo "downloadPlatform attempt $attempt…"
+              xcrun simctl list >/dev/null 2>&1 || true
+              xcodebuild -downloadPlatform iOS || true
+              xcodebuild -runFirstLaunch || true
+              attempt=$((attempt + 1))
+              sleep 5
+            done
+            echo "iOS device platform ready after download."
+          fi
           xcrun --show-sdk-version --sdk iphoneos
           xcodebuild -showdestinations -scheme App -project apps/iphone/ios/App/App.xcodeproj 2>/dev/null \
             | grep -E 'platform:iOS|Any iOS Device|error:' || true
