@@ -19,7 +19,8 @@
 #   NEXT_PUBLIC_MAP_STYLE_URL
 #   NEXT_PUBLIC_DEFAULT_CENTER_LNG / _LAT / _ZOOM
 #   NEXT_PUBLIC_MAP_ATTRIBUTION
-# Never put JWT_SECRET, DATABASE_URL, or provider API keys in NEXT_PUBLIC_* vars.
+#   GOOGLE_OAUTH_CLIENT_ID / NEXT_PUBLIC_GOOGLE_OAUTH_CLIENT_ID  (same Web client ID)
+# Never put JWT_SECRET, DATABASE_URL, client secrets, or provider API keys in NEXT_PUBLIC_* vars.
 
 [context.production.environment]
   NODE_ENV = "production"
