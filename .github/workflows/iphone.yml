@@ -34,6 +34,7 @@ env:
 
 jobs:
   simulator:
+    if: github.event_name != 'workflow_dispatch' || inputs.distribution == 'simulator' || inputs.distribution == 'testflight'
     runs-on: macos-26
     timeout-minutes: 30
     steps:
@@ -80,11 +81,13 @@ jobs:
           path: apps/iphone/www/
           retention-days: 3
 
+  # Signs a real App Store IPA (iphoneos Release archive) and uploads to App Store Connect.
+  # Requires the protected `app-store` GitHub Environment secrets documented in docs/iphone-github-actions.md.
   testflight:
     if: github.event_name == 'workflow_dispatch' && inputs.distribution == 'testflight'
     needs: simulator
     runs-on: macos-26
-    timeout-minutes: 30
+    timeout-minutes: 45
     environment: app-store
     env:
       IOS_TEAM_ID: ${{ vars.IOS_TEAM_ID }}
@@ -102,6 +105,7 @@ jobs:
           for name in IOS_TEAM_ID IOS_CERTIFICATE_P12 IOS_CERTIFICATE_PASSWORD IOS_PROVISIONING_PROFILE ASC_API_KEY_ID ASC_API_ISSUER_ID ASC_API_KEY_P8; do
             if [ -z "${!name}" ]; then echo "Missing GitHub app-store environment setting: $name"; exit 1; fi
           done
+          echo "All app-store signing prerequisites are present (values not printed)."
       - uses: pnpm/action-setup@v4
         with:
           version: 9.15.0
@@ -114,19 +118,71 @@ jobs:
         with:
           name: iphone-web-bundle
           path: apps/iphone/www
-      - run: pnpm --filter @magnexis/iphone sync
+      - name: Sync Capacitor with production web bundle
+        run: pnpm --filter @magnexis/iphone sync
       - name: Install signing assets into an ephemeral keychain
         run: bash apps/iphone/scripts/ci-signing.sh install
-      - name: Archive and export the signed iPhone app
+      - name: Archive Release build for App Store (device SDK)
         run: |
-          xcodebuild -project apps/iphone/ios/App/App.xcodeproj -scheme App -configuration Release -destination 'generic/platform=iOS' -archivePath "$RUNNER_TEMP/Maps.xcarchive" DEVELOPMENT_TEAM="$IOS_TEAM_ID" CODE_SIGN_STYLE=Manual CODE_SIGN_IDENTITY='Apple Distribution' PROVISIONING_PROFILE_SPECIFIER="$MAPS_PROFILE_NAME" CURRENT_PROJECT_VERSION="${{ github.run_number }}" archive
-          xcodebuild -exportArchive -archivePath "$RUNNER_TEMP/Maps.xcarchive" -exportPath "$RUNNER_TEMP/MapsExport" -exportOptionsPlist "$RUNNER_TEMP/ExportOptions.plist"
-      - name: Validate and upload to App Store Connect
+          set -euo pipefail
+          xcodebuild -version
+          xcodebuild -showBuildSettings -project apps/iphone/ios/App/App.xcodeproj -scheme App -configuration Release \
+            DEVELOPMENT_TEAM="$IOS_TEAM_ID" CODE_SIGN_STYLE=Manual \
+            | grep -E 'PRODUCT_BUNDLE_IDENTIFIER|MARKETING_VERSION|IPHONEOS_DEPLOYMENT_TARGET|SDKROOT' || true
+          xcodebuild \
+            -project apps/iphone/ios/App/App.xcodeproj \
+            -scheme App \
+            -configuration Release \
+            -sdk iphoneos \
+            -destination 'generic/platform=iOS' \
+            -archivePath "$RUNNER_TEMP/Maps.xcarchive" \
+            DEVELOPMENT_TEAM="$IOS_TEAM_ID" \
+            CODE_SIGN_STYLE=Manual \
+            CODE_SIGN_IDENTITY='Apple Distribution' \
+            PROVISIONING_PROFILE_SPECIFIER="$MAPS_PROFILE_NAME" \
+            CURRENT_PROJECT_VERSION="${{ github.run_number }}" \
+            ONLY_ACTIVE_ARCH=NO \
+            archive
+          test -d "$RUNNER_TEMP/Maps.xcarchive/Products/Applications/App.app"
+          echo "Archive created at $RUNNER_TEMP/Maps.xcarchive"
+      - name: Export signed IPA for App Store Connect
         run: |
+          set -euo pipefail
+          xcodebuild -exportArchive \
+            -archivePath "$RUNNER_TEMP/Maps.xcarchive" \
+            -exportPath "$RUNNER_TEMP/MapsExport" \
+            -exportOptionsPlist "$RUNNER_TEMP/ExportOptions.plist"
           IPA=$(find "$RUNNER_TEMP/MapsExport" -maxdepth 1 -name '*.ipa' -print -quit)
           test -n "$IPA"
-          xcrun altool --validate-app -f "$IPA" -t ios --apiKey "$ASC_API_KEY_ID" --apiIssuer "$ASC_API_ISSUER_ID"
-          xcrun altool --upload-app -f "$IPA" -t ios --apiKey "$ASC_API_KEY_ID" --apiIssuer "$ASC_API_ISSUER_ID"
+          test -f "$IPA"
+          BYTES=$(wc -c < "$IPA" | tr -d ' ')
+          echo "Exported signed IPA ($(basename "$IPA"), ${BYTES} bytes)"
+          if [ "$BYTES" -lt 1000000 ]; then
+            echo "IPA is unexpectedly small; refusing to upload a stub."
+            exit 1
+          fi
+          echo "MAPS_IPA=$IPA" >> "$GITHUB_ENV"
+          # Codesign summary only (no private key material)
+          codesign -dv --verbose=2 "$RUNNER_TEMP/Maps.xcarchive/Products/Applications/App.app" 2>&1 | grep -E 'Identifier=|Authority=|TeamIdentifier=' || true
+      - name: Validate and upload IPA to App Store Connect
+        run: |
+          set -euo pipefail
+          test -f "$MAPS_IPA"
+          KEY_PATH="$HOME/.appstoreconnect/private_keys/AuthKey_${ASC_API_KEY_ID}.p8"
+          test -f "$KEY_PATH"
+          echo "Validating IPA with App Store Connect API key (key file present, contents not printed)…"
+          xcrun altool --validate-app \
+            -f "$MAPS_IPA" \
+            -t ios \
+            --apiKey "$ASC_API_KEY_ID" \
+            --apiIssuer "$ASC_API_ISSUER_ID"
+          echo "Uploading signed IPA to App Store Connect…"
+          xcrun altool --upload-app \
+            -f "$MAPS_IPA" \
+            -t ios \
+            --apiKey "$ASC_API_KEY_ID" \
+            --apiIssuer "$ASC_API_ISSUER_ID"
+          echo "Upload submitted. Wait for App Store Connect processing before TestFlight or App Review."
       - name: Remove temporary signing assets
         if: always()
         run: bash apps/iphone/scripts/ci-signing.sh cleanup

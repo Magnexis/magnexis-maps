@@ -57,4 +57,4 @@ The checked-in `ios` project includes purpose strings, URL scheme, official opaq
 
 ## Distribution status
 
-**Release preparation; verify workflow results before distribution.** Account deletion is implemented. [GitHub Actions](../../docs/iphone-github-actions.md) provides the macOS build, simulator evidence and protected signing/TestFlight path. See [App Store preparation](../../docs/iphone-app-store.md) for policy, provider, real-device and review gates, and [the Google Maps comparison](../../docs/google-maps-parity.md) for known product gaps.
+**Release preparation; verify workflow results before distribution.** Account deletion is implemented. [GitHub Actions](../../docs/iphone-github-actions.md) compiles the real native app on macOS (simulator evidence on push; signed App Store IPA + ASC upload on manual **testflight** when `app-store` secrets are configured). See [App Store preparation](../../docs/iphone-app-store.md) for policy, provider, real-device and review gates, and [the Google Maps comparison](../../docs/google-maps-parity.md) for known product gaps.

@@ -35,7 +35,19 @@ dest = Path.home()/'Library/MobileDevice/Provisioning Profiles'
 dest.mkdir(parents=True, exist_ok=True)
 (dest/(p['UUID']+'.mobileprovision')).write_bytes((root/'maps.mobileprovision').read_bytes())
 with (root/'ExportOptions.plist').open('wb') as f:
-    plistlib.dump({'method':'app-store-connect','teamID':team,'signingStyle':'manual','provisioningProfiles':{'com.magnexis.maps':p['Name']},'uploadSymbols':True},f)
+    # method app-store-connect exports a distributable IPA for ASC upload (Xcode 15+).
+    # destination export keeps upload as an explicit altool step with clearer CI logs.
+    plistlib.dump({
+        'method': 'app-store-connect',
+        'destination': 'export',
+        'teamID': team,
+        'signingStyle': 'manual',
+        'signingCertificate': 'Apple Distribution',
+        'provisioningProfiles': {'com.magnexis.maps': p['Name']},
+        'uploadSymbols': True,
+        'manageAppVersionAndBuildNumber': False,
+    }, f)
+print('Prepared App Store export options for com.magnexis.maps')
 PY
 PASSWORD=$(openssl rand -hex 32)
 security create-keychain -p "$PASSWORD" "$KEYCHAIN"
@@ -44,5 +56,12 @@ security unlock-keychain -p "$PASSWORD" "$KEYCHAIN"
 security import "$CERTIFICATE" -P "$IOS_CERTIFICATE_PASSWORD" -A -t cert -f pkcs12 -k "$KEYCHAIN" >/dev/null
 security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$PASSWORD" "$KEYCHAIN" >/dev/null
 security list-keychains -d user -s "$KEYCHAIN" "$HOME/Library/Keychains/login.keychain-db"
+# Confirm a Distribution identity exists without printing private key material
+security find-identity -v -p codesigning "$KEYCHAIN" | grep -q 'Apple Distribution' \
+  || { echo 'P12 must contain an Apple Distribution certificate and private key'; exit 1; }
 mkdir -p "$API_FOLDER"
+# altool looks for AuthKey_<KEY_ID>.p8 under ~/.appstoreconnect/private_keys
 printf '%s' "$ASC_API_KEY_P8" > "$API_FOLDER/AuthKey_$ASC_API_KEY_ID.p8"
+chmod 600 "$API_FOLDER/AuthKey_$ASC_API_KEY_ID.p8"
+test -s "$API_FOLDER/AuthKey_$ASC_API_KEY_ID.p8"
+echo "Signing assets installed for team $IOS_TEAM_ID (credentials not printed)."
