@@ -1,6 +1,6 @@
 # iPhone builds with GitHub Actions
 
-The `iPhone build and TestFlight` workflow in `.github/workflows/iphone.yml` runs on a GitHub-hosted `macos-26` runner. A local Mac is not required.
+The `iPhone build and TestFlight` workflow in `.github/workflows/iphone.yml` runs on a GitHub-hosted `macos-15` runner. A local Mac is not required.
 
 ## What each path produces
 
