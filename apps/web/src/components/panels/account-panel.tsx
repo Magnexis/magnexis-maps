@@ -10,6 +10,18 @@ import {
   publicGoogleClientId,
   requestGoogleIdToken,
 } from "@/lib/google-oauth";
+import {
+  beginGitHubSignIn,
+  publicGitHubClientId,
+} from "@/lib/github-oauth";
+
+type AuthProvider = "password" | "google" | "github";
+
+function readStoredAuthProvider(): AuthProvider {
+  const stored = window.localStorage.getItem("magnexis_auth_provider");
+  if (stored === "google" || stored === "github") return stored;
+  return "password";
+}
 
 export function AccountPanel({ hideHeader = false }: { hideHeader?: boolean }) {
   const [mode, setMode] = useState<"login" | "register">("login");
@@ -19,11 +31,9 @@ export function AccountPanel({ hideHeader = false }: { hideHeader?: boolean }) {
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [userLabel, setUserLabel] = useState<string | null>(null);
-  const [authProvider, setAuthProvider] = useState<"password" | "google">(
-    "password",
-  );
+  const [authProvider, setAuthProvider] = useState<AuthProvider>("password");
   const [pending, setPending] = useState<
-    "session" | "sign-in" | "google" | "delete" | null
+    "session" | "sign-in" | "google" | "github" | "delete" | null
   >("session");
   const [confirmingDeletion, setConfirmingDeletion] = useState(false);
   const [deletePassword, setDeletePassword] = useState("");
@@ -32,6 +42,7 @@ export function AccountPanel({ hideHeader = false }: { hideHeader?: boolean }) {
   const [googleClientId, setGoogleClientId] = useState<string | null>(
     publicGoogleClientId(),
   );
+  const [githubClientId, setGithubClientId] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -46,12 +57,24 @@ export function AccountPanel({ hideHeader = false }: { hideHeader?: boolean }) {
       }
 
       try {
+        const status = await getApiClient().githubAuthStatus();
+        if (active && status.configured && status.clientId) {
+          setGithubClientId(status.clientId);
+        } else if (active) {
+          // Client ID alone is not enough — API also needs the client secret.
+          setGithubClientId(null);
+        }
+      } catch {
+        /* Fall back to public client id only when status is unavailable. */
+        if (active) setGithubClientId(publicGitHubClientId());
+      }
+
+      try {
         if (!window.localStorage.getItem("magnexis_token")) return;
         const { user } = await getApiClient().me();
         if (active) {
           setUserLabel(user.displayName);
-          const stored = window.localStorage.getItem("magnexis_auth_provider");
-          setAuthProvider(stored === "google" ? "google" : "password");
+          setAuthProvider(readStoredAuthProvider());
         }
       } catch (failure) {
         if (!active) return;
@@ -133,6 +156,23 @@ export function AccountPanel({ hideHeader = false }: { hideHeader?: boolean }) {
     }
   }
 
+  function signInWithGitHub() {
+    if (pending || !githubClientId) return;
+    setPending("github");
+    setError(null);
+    setMessage(null);
+    try {
+      beginGitHubSignIn(githubClientId);
+    } catch (failure) {
+      setPending(null);
+      setError(
+        failure instanceof Error
+          ? failure.message
+          : "GitHub sign-in failed. Try again or use email and password.",
+      );
+    }
+  }
+
   function cancelDeletion() {
     setConfirmingDeletion(false);
     setDeletePassword("");
@@ -158,7 +198,8 @@ export function AccountPanel({ hideHeader = false }: { hideHeader?: boolean }) {
 
   async function removeAccount(event: FormEvent) {
     event.preventDefault();
-    const needsPassword = authProvider !== "google";
+    const needsPassword =
+      authProvider !== "google" && authProvider !== "github";
     if (
       pending ||
       confirmation !== "DELETE" ||
@@ -297,10 +338,11 @@ export function AccountPanel({ hideHeader = false }: { hideHeader?: boolean }) {
                   searches from this device.
                 </span>
               </label>
-              {authProvider === "google" ? (
+              {authProvider === "google" || authProvider === "github" ? (
                 <p className="text-sm text-[var(--mx-text-muted)]">
-                  This account uses Google sign-in. Type DELETE to confirm —
-                  no password is required.
+                  This account uses{" "}
+                  {authProvider === "google" ? "Google" : "GitHub"} sign-in.
+                  Type DELETE to confirm — no password is required.
                 </p>
               ) : (
                 <label className="block space-y-1 text-sm">
@@ -333,7 +375,9 @@ export function AccountPanel({ hideHeader = false }: { hideHeader?: boolean }) {
                   variant="danger"
                   disabled={
                     Boolean(pending) ||
-                    (authProvider !== "google" && !deletePassword) ||
+                    (authProvider !== "google" &&
+                      authProvider !== "github" &&
+                      !deletePassword) ||
                     confirmation !== "DELETE"
                   }
                   aria-busy={pending === "delete"}
@@ -429,7 +473,7 @@ export function AccountPanel({ hideHeader = false }: { hideHeader?: boolean }) {
                 ? "Sign in"
                 : "Create account"}
           </Button>
-          {googleClientId ? (
+          {googleClientId || githubClientId ? (
             <>
               <div
                 className="flex items-center gap-3 text-xs text-[var(--mx-text-muted)]"
@@ -439,18 +483,34 @@ export function AccountPanel({ hideHeader = false }: { hideHeader?: boolean }) {
                 or
                 <span className="h-px flex-1 bg-[var(--mx-border)]" />
               </div>
-              <Button
-                type="button"
-                variant="secondary"
-                className="w-full"
-                disabled={Boolean(pending)}
-                aria-busy={pending === "google"}
-                onClick={() => void signInWithGoogle()}
-              >
-                {pending === "google"
-                  ? "Waiting for Google…"
-                  : "Continue with Google"}
-              </Button>
+              {googleClientId ? (
+                <Button
+                  type="button"
+                  variant="secondary"
+                  className="w-full"
+                  disabled={Boolean(pending)}
+                  aria-busy={pending === "google"}
+                  onClick={() => void signInWithGoogle()}
+                >
+                  {pending === "google"
+                    ? "Waiting for Google…"
+                    : "Continue with Google"}
+                </Button>
+              ) : null}
+              {githubClientId ? (
+                <Button
+                  type="button"
+                  variant="secondary"
+                  className="w-full"
+                  disabled={Boolean(pending)}
+                  aria-busy={pending === "github"}
+                  onClick={signInWithGitHub}
+                >
+                  {pending === "github"
+                    ? "Redirecting to GitHub…"
+                    : "Continue with GitHub"}
+                </Button>
+              ) : null}
             </>
           ) : null}
         </form>

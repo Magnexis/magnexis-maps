@@ -57,6 +57,19 @@ export function buildEnvironment(env, development = false) {
   const support = development
     ? env.IPHONE_SUPPORT_URL || ""
     : validatePublicUrl(env.IPHONE_SUPPORT_URL, "IPHONE_SUPPORT_URL");
+  const googleOauth =
+    env.NEXT_PUBLIC_GOOGLE_OAUTH_CLIENT_ID?.trim() ||
+    env.GOOGLE_OAUTH_CLIENT_ID?.trim() ||
+    "";
+  const githubOauth =
+    env.NEXT_PUBLIC_GITHUB_OAUTH_CLIENT_ID?.trim() ||
+    env.GITHUB_OAUTH_CLIENT_ID?.trim() ||
+    "";
+  const mapillary =
+    env.NEXT_PUBLIC_MAPILLARY_ACCESS_TOKEN?.trim() ||
+    env.MAPILLARY_ACCESS_TOKEN?.trim() ||
+    "";
+
   return {
     ...env,
     MAGNEXIS_IPHONE_EXPORT: "1",
@@ -65,5 +78,16 @@ export function buildEnvironment(env, development = false) {
     NEXT_PUBLIC_SHARE_URL: share,
     NEXT_PUBLIC_PRIVACY_URL: privacy,
     NEXT_PUBLIC_SUPPORT_URL: support,
+    // Bake public OAuth client IDs + Mapillary into the static Capacitor export.
+    // Secrets (GitHub client secret, Google Maps server key) stay on the API/Netlify.
+    ...(googleOauth
+      ? { NEXT_PUBLIC_GOOGLE_OAUTH_CLIENT_ID: googleOauth }
+      : {}),
+    ...(githubOauth
+      ? { NEXT_PUBLIC_GITHUB_OAUTH_CLIENT_ID: githubOauth }
+      : {}),
+    ...(mapillary
+      ? { NEXT_PUBLIC_MAPILLARY_ACCESS_TOKEN: mapillary }
+      : {}),
   };
 }

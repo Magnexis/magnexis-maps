@@ -182,6 +182,17 @@ export function createApiClient(options: ApiClientOptions) {
         body: JSON.stringify(body),
       }),
 
+    githubAuthStatus: () =>
+      request<{ configured: boolean; clientId: string | null }>(
+        "/api/v1/auth/github/status",
+      ),
+
+    loginWithGitHub: (body: { code: string; redirectUri: string }) =>
+      request<{ user: UserPublic; token: string }>("/api/v1/auth/github", {
+        method: "POST",
+        body: JSON.stringify(body),
+      }),
+
     me: () => request<{ user: UserPublic }>("/api/v1/me"),
 
     deleteAccount: async (body: DeleteAccount): Promise<{ deleted: true }> => {

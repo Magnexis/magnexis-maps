@@ -51,6 +51,7 @@ import {
   type DroppedPinInfo,
 } from "@/components/map/dropped-pin-card";
 import { MapMeasureRuler } from "@/components/map/map-measure-ruler";
+import { openStreetViewAt } from "@/lib/open-street-view";
 
 const DEFAULT_STYLE = resolveClientBasemapUrl(
   process.env.NEXT_PUBLIC_MAP_STYLE_URL,
@@ -1180,6 +1181,14 @@ export function MapCanvas() {
           layers: guardLayers,
         });
         if (hits.length) return;
+      }
+      // Street view layer on + no Mapillary hit → open Google/Mapillary at tap.
+      if (useAppStore.getState().layers.streetView) {
+        const { lng, lat } = e.lngLat;
+        void openStreetViewAt(lng, lat).then((opened) => {
+          if (!opened) void placeDroppedPin(e);
+        });
+        return;
       }
       void placeDroppedPin(e);
     });

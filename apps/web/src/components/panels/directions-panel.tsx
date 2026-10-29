@@ -96,6 +96,8 @@ export function DirectionsPanel({
     directions,
     setDirections,
     selectedSearch,
+    setSelectedSearch,
+    setSelectedPlace,
     userLocation,
     setUserLocation,
     mapView,
@@ -177,7 +179,9 @@ export function DirectionsPanel({
     });
   }, [directions.waypoints]);
 
-  // Prefer selected search as destination when opening Go from Search
+  // Prefer selected search as destination when opening Go from Search.
+  // One-shot: only apply while destination is empty; Clear nulls selectedSearch
+  // so this cannot rehydrate B after the user dismisses the trip.
   useEffect(() => {
     if (directions.destination || !selectedSearch?.coordinates) return;
     setDestQuery(selectedSearch.label);
@@ -380,6 +384,9 @@ export function DirectionsPanel({
     setStopDrafts([]);
     setOriginQuery("");
     setDestQuery("");
+    // Prevent Search→Go rehydrate of destination after Clear.
+    setSelectedSearch(null);
+    setSelectedPlace(null);
     setDirections({
       origin: null,
       destination: null,
@@ -389,6 +396,39 @@ export function DirectionsPanel({
       error: null,
     });
   }
+
+  function clearOrigin() {
+    setOriginQuery("");
+    setDirections({
+      origin: null,
+      routes: [],
+      selectedRouteIndex: 0,
+      error: null,
+    });
+  }
+
+  function clearDestination() {
+    setDestQuery("");
+    setSelectedSearch(null);
+    setSelectedPlace(null);
+    setDirections({
+      destination: null,
+      routes: [],
+      selectedRouteIndex: 0,
+      error: null,
+    });
+  }
+
+  const hasTrip =
+    Boolean(directions.origin) ||
+    Boolean(directions.destination) ||
+    directions.waypoints.length > 0 ||
+    directions.routes.length > 0 ||
+    Boolean(directions.error) ||
+    stopDrafts.some((q) => q.trim()) ||
+    Boolean(originQuery.trim()) ||
+    Boolean(destQuery.trim());
+
 
   const routes = directions.routes;
   const activeIndex = Math.min(
@@ -469,15 +509,33 @@ export function DirectionsPanel({
 
       <div className="flex gap-2">
         <div className="min-w-0 flex-1 space-y-2">
-          <Input
-            placeholder="Choose starting point"
-            value={originQuery}
-            onChange={(e) => {
-              setOriginQuery(e.target.value);
-              setDirections({ origin: null });
-            }}
-            aria-label="Route origin"
-          />
+          <div className="flex gap-1.5">
+            <Input
+              placeholder="Choose starting point"
+              value={originQuery}
+              onChange={(e) => {
+                setOriginQuery(e.target.value);
+                setDirections({
+                  origin: null,
+                  routes: [],
+                  selectedRouteIndex: 0,
+                });
+              }}
+              aria-label="Route origin"
+              className="min-w-0 flex-1"
+            />
+            {originQuery || directions.origin ? (
+              <Button
+                size="icon"
+                variant="ghost"
+                className="h-10 w-10 shrink-0"
+                aria-label="Clear starting point"
+                onClick={clearOrigin}
+              >
+                <X size={14} />
+              </Button>
+            ) : null}
+          </div>
           {stopDrafts.map((draft, i) => (
             <div
               key={`stop-row-${i}`}
@@ -540,15 +598,34 @@ export function DirectionsPanel({
               </Button>
             </div>
           ))}
-          <Input
-            placeholder="Choose destination"
-            value={destQuery}
-            onChange={(e) => {
-              setDestQuery(e.target.value);
-              setDirections({ destination: null });
-            }}
-            aria-label="Route destination"
-          />
+          <div className="flex gap-1.5">
+            <Input
+              placeholder="Choose destination"
+              value={destQuery}
+              onChange={(e) => {
+                setDestQuery(e.target.value);
+                setSelectedSearch(null);
+                setDirections({
+                  destination: null,
+                  routes: [],
+                  selectedRouteIndex: 0,
+                });
+              }}
+              aria-label="Route destination"
+              className="min-w-0 flex-1"
+            />
+            {destQuery || directions.destination ? (
+              <Button
+                size="icon"
+                variant="ghost"
+                className="h-10 w-10 shrink-0"
+                aria-label="Clear destination"
+                onClick={clearDestination}
+              >
+                <X size={14} />
+              </Button>
+            ) : null}
+          </div>
         </div>
         <Button
           size="icon"
@@ -652,17 +729,36 @@ export function DirectionsPanel({
         </button>
       </div>
 
+      {hasTrip ? (
+        <div className="flex justify-end">
+          <Button
+            size="sm"
+            variant="ghost"
+            className="gap-1.5 text-[var(--mx-text-muted)]"
+            onClick={clearDirections}
+          >
+            <X size={14} />
+            Clear route
+          </Button>
+        </div>
+      ) : null}
+
       {directions.error ? (
         <div className="space-y-2 rounded-xl bg-amber-500/10 px-3 py-2 text-sm text-amber-300">
           <p>{directions.error}</p>
-          <Button
-            size="sm"
-            variant="secondary"
-            disabled={loading}
-            onClick={() => void planRoute()}
-          >
-            Retry route
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <Button
+              size="sm"
+              variant="secondary"
+              disabled={loading}
+              onClick={() => void planRoute()}
+            >
+              Retry route
+            </Button>
+            <Button size="sm" variant="ghost" onClick={clearDirections}>
+              Clear route
+            </Button>
+          </div>
         </div>
       ) : null}
 

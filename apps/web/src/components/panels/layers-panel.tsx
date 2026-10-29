@@ -6,6 +6,7 @@ import { useAppStore } from "@/lib/store";
 import { resolveTrafficSource, trafficConfigured } from "@/lib/traffic";
 import { mapillaryConfigured } from "@/lib/mapillary";
 import { fetchGoogleProviderStatus } from "@/lib/google-maps";
+import { MapChoiceRow } from "@/components/ui/map-choice";
 
 type StyleInfo = {
   id: "standard" | "dark" | "terrain" | "satellite";
@@ -56,6 +57,8 @@ export function LayersPanel({ hideHeader = false }: { hideHeader?: boolean }) {
       );
   }, []);
 
+  const streetViewAvailable = mapillaryConfigured() || googleConfigured;
+
   return (
     <div className="space-y-4">
       {!hideHeader ? (
@@ -71,89 +74,51 @@ export function LayersPanel({ hideHeader = false }: { hideHeader?: boolean }) {
         <div className="text-xs font-medium uppercase tracking-wider text-[var(--mx-text-muted)]">
           Basemap
         </div>
-        {styles.map((s) => (
-          <label
-            key={s.id}
-            className={`flex cursor-pointer items-start gap-3 rounded-xl border px-3 py-2 ${
-              styleId === s.id
-                ? "border-primary bg-primary/10"
-                : "border-[var(--mx-border)]"
-            } ${!s.available ? "opacity-50" : ""}`}
-          >
-            <input
-              type="radio"
-              name="style"
+        {styles.map((s) => {
+          const selected =
+            s.id === "standard"
+              ? styleId === "standard" &&
+                settings.chromaticTheme === "standard"
+              : s.id === "dark"
+                ? styleId === "dark" && settings.chromaticTheme === "night"
+                : styleId === s.id;
+          return (
+            <MapChoiceRow
+              key={s.id}
+              selected={selected}
               disabled={!s.available}
-              checked={
-                s.id === "standard"
-                  ? styleId === "standard" &&
-                    settings.chromaticTheme === "standard"
-                  : s.id === "dark"
-                    ? styleId === "dark" &&
-                      settings.chromaticTheme === "night"
-                    : styleId === s.id
+              title={s.label}
+              description={
+                !s.available && s.reasonUnavailable
+                  ? s.reasonUnavailable
+                  : undefined
               }
-              onChange={() => {
+              onSelect={() => {
                 if (!s.available) return;
                 setStyleId(s.id);
                 patchSettings({
                   chromaticTheme: s.id === "standard" ? "standard" : "night",
                 });
               }}
-              className="mt-1"
             />
-            <span>
-              <span className="block text-sm font-medium">{s.label}</span>
-              {!s.available && s.reasonUnavailable ? (
-                <span className="block text-xs text-[var(--mx-text-muted)]">
-                  {s.reasonUnavailable}
-                </span>
-              ) : null}
-            </span>
-          </label>
-        ))}
-        <label
-          className={`flex cursor-pointer items-start gap-3 rounded-xl border px-3 py-2 ${
-            settings.chromaticTheme === "high-contrast"
-              ? "border-primary bg-primary/10"
-              : "border-[var(--mx-border)]"
-          }`}
-        >
-          <input
-            type="radio"
-            name="chromatic-extra"
-            checked={settings.chromaticTheme === "high-contrast"}
-            onChange={() => {
-              setStyleId("standard");
-              patchSettings({ chromaticTheme: "high-contrast" });
-            }}
-            className="mt-1"
-          />
-          <span className="block text-sm font-medium">
-            Magnexis High Contrast
-          </span>
-        </label>
-        <label
-          className={`flex cursor-pointer items-start gap-3 rounded-xl border px-3 py-2 ${
-            settings.chromaticTheme === "navigation"
-              ? "border-primary bg-primary/10"
-              : "border-[var(--mx-border)]"
-          }`}
-        >
-          <input
-            type="radio"
-            name="chromatic-extra"
-            checked={settings.chromaticTheme === "navigation"}
-            onChange={() => {
-              setStyleId("dark");
-              patchSettings({ chromaticTheme: "navigation" });
-            }}
-            className="mt-1"
-          />
-          <span className="block text-sm font-medium">
-            Magnexis Navigation
-          </span>
-        </label>
+          );
+        })}
+        <MapChoiceRow
+          selected={settings.chromaticTheme === "high-contrast"}
+          title="Magnexis High Contrast"
+          onSelect={() => {
+            setStyleId("standard");
+            patchSettings({ chromaticTheme: "high-contrast" });
+          }}
+        />
+        <MapChoiceRow
+          selected={settings.chromaticTheme === "navigation"}
+          title="Magnexis Navigation"
+          onSelect={() => {
+            setStyleId("dark");
+            patchSettings({ chromaticTheme: "navigation" });
+          }}
+        />
       </div>
 
       <div className="space-y-2">
@@ -167,22 +132,16 @@ export function LayersPanel({ hideHeader = false }: { hideHeader?: boolean }) {
             ["hidden", "Hide optional POIs"],
           ] as const
         ).map(([value, label]) => (
-          <label
+          <MapChoiceRow
             key={value}
-            className="flex items-center justify-between rounded-xl border border-[var(--mx-border)] px-3 py-2 text-sm"
-          >
-            {label}
-            <input
-              type="radio"
-              name="poi-density"
-              checked={settings.poiDensity === value}
-              onChange={() => {
-                patchSettings({ poiDensity: value });
-                if (value === "hidden" && layers.poi) toggleLayer("poi");
-                if (value !== "hidden" && !layers.poi) toggleLayer("poi");
-              }}
-            />
-          </label>
+            selected={settings.poiDensity === value}
+            title={label}
+            onSelect={() => {
+              patchSettings({ poiDensity: value });
+              if (value === "hidden" && layers.poi) toggleLayer("poi");
+              if (value !== "hidden" && !layers.poi) toggleLayer("poi");
+            }}
+          />
         ))}
       </div>
 
@@ -190,27 +149,13 @@ export function LayersPanel({ hideHeader = false }: { hideHeader?: boolean }) {
         <div className="text-xs font-medium uppercase tracking-wider text-[var(--mx-text-muted)]">
           3D
         </div>
-        <label
-          className={`flex cursor-pointer items-start justify-between gap-3 rounded-xl border px-3 py-2.5 text-sm ${
-            settings.buildings3d
-              ? "border-primary bg-primary/10"
-              : "border-[var(--mx-border)]"
-          }`}
-        >
-          <span>
-            <span className="block font-medium">3D buildings</span>
-            <span className="mt-0.5 block text-[11px] text-[var(--mx-text-muted)]">
-              Extrude buildings and tilt the map (Apple Maps–style). Best at
-              city zoom.
-            </span>
-          </span>
-          <input
-            type="checkbox"
-            className="mt-1"
-            checked={settings.buildings3d}
-            onChange={(e) => patchSettings({ buildings3d: e.target.checked })}
-          />
-        </label>
+        <MapChoiceRow
+          multi
+          selected={settings.buildings3d}
+          title="3D buildings"
+          description="Extrude buildings and tilt the map. Best at city zoom."
+          onSelect={() => patchSettings({ buildings3d: !settings.buildings3d })}
+        />
       </div>
 
       <div className="space-y-2">
@@ -224,71 +169,69 @@ export function LayersPanel({ hideHeader = false }: { hideHeader?: boolean }) {
             ["showBuildingFootprints", "Building footprints"],
           ] as const
         ).map(([key, label]) => (
-          <label
+          <MapChoiceRow
             key={key}
-            className="flex items-center justify-between rounded-xl border border-[var(--mx-border)] px-3 py-2 text-sm"
-          >
-            {label}
-            <input
-              type="checkbox"
-              checked={settings[key]}
-              onChange={(e) => patchSettings({ [key]: e.target.checked })}
-            />
-          </label>
+            multi
+            selected={settings[key]}
+            title={label}
+            onSelect={() => patchSettings({ [key]: !settings[key] })}
+          />
         ))}
         {trafficConfigured() ? (
-          <label className="flex items-center justify-between rounded-xl border border-[var(--mx-border)] px-3 py-2 text-sm">
-            <span>
-              Live traffic
-              <span className="mt-0.5 block text-[11px] text-[var(--mx-text-muted)]">
-                {resolveTrafficSource()?.provider ?? "tiles"} congestion · press
-                T to toggle
-              </span>
-            </span>
-            <input
-              type="checkbox"
-              checked={layers.traffic}
-              onChange={() => toggleLayer("traffic")}
-            />
-          </label>
+          <MapChoiceRow
+            multi
+            selected={layers.traffic}
+            title="Live traffic"
+            description={`${resolveTrafficSource()?.provider ?? "tiles"} congestion · press T to toggle`}
+            onSelect={() => toggleLayer("traffic")}
+          />
         ) : (
-          <label className="flex items-center justify-between rounded-xl border border-[var(--mx-border)] px-3 py-2 text-sm opacity-50">
-            Live traffic
-            <input type="checkbox" disabled checked={false} readOnly />
-          </label>
+          <MapChoiceRow
+            multi
+            selected={false}
+            disabled
+            title="Live traffic"
+            description="Needs TOMTOM_API_KEY on the API"
+            onSelect={() => undefined}
+          />
         )}
-        {mapillaryConfigured() ? (
-          <label className="flex items-center justify-between rounded-xl border border-[var(--mx-border)] px-3 py-2 text-sm">
-            <span>
-              Street view
-              <span className="mt-0.5 block text-[11px] text-[var(--mx-text-muted)]">
-                Mapillary coverage · click green dots
-                {googleConfigured ? " · Google fallback" : ""}
-              </span>
-            </span>
-            <input
-              type="checkbox"
-              checked={layers.streetView}
-              onChange={() => toggleLayer("streetView")}
-            />
-          </label>
+        {streetViewAvailable ? (
+          <MapChoiceRow
+            multi
+            selected={layers.streetView}
+            title="Street view"
+            description={
+              mapillaryConfigured()
+                ? `Mapillary coverage · click green dots${
+                    googleConfigured ? " · Google fallback" : ""
+                  }`
+                : "Google Street View · tap the map to open imagery"
+            }
+            onSelect={() => toggleLayer("streetView")}
+          />
         ) : (
-          <label className="flex items-center justify-between rounded-xl border border-[var(--mx-border)] px-3 py-2 text-sm opacity-50">
-            Street view
-            <input type="checkbox" disabled checked={false} readOnly />
-          </label>
+          <MapChoiceRow
+            multi
+            selected={false}
+            disabled
+            title="Street view"
+            description="Needs Mapillary token and/or GOOGLE_MAPS_API_KEY on the API"
+            onSelect={() => undefined}
+          />
         )}
         <p className="text-[11px] text-[var(--mx-text-muted)]">
           {[
             !trafficConfigured()
               ? "Traffic needs TOMTOM_API_KEY on the API (pnpm secrets:tomtom), Mapbox, or NEXT_PUBLIC_TRAFFIC_TILES_URL."
               : "Live traffic uses TomTom flow tiles via the Magnexis API proxy.",
-            !mapillaryConfigured()
-              ? "Street view coverage overlay needs NEXT_PUBLIC_MAPILLARY_ACCESS_TOKEN from mapillary.com/dashboard/developers."
-              : "Street view uses Mapillary community imagery (CC BY-SA).",
+            !mapillaryConfigured() && !googleConfigured
+              ? "Street view needs NEXT_PUBLIC_MAPILLARY_ACCESS_TOKEN and/or GOOGLE_MAPS_API_KEY."
+              : !mapillaryConfigured()
+                ? "Street view uses Google Street View Static via the API proxy (Mapillary optional for coverage dots)."
+                : "Street view uses Mapillary community imagery (CC BY-SA).",
             googleConfigured
-              ? "Google enrichment is on (Places photos + Street View Static fallback via API proxy)."
-              : "Optional: set GOOGLE_MAPS_API_KEY on the API (pnpm secrets:google) for Places photos and Street View fallback.",
+              ? "Google enrichment is on (Places photos + Street View Static)."
+              : "Optional: set GOOGLE_MAPS_API_KEY on the API for Places photos and Street View.",
             "Indoor maps are not available in this build.",
           ]
             .filter(Boolean)
@@ -302,24 +245,18 @@ export function LayersPanel({ hideHeader = false }: { hideHeader?: boolean }) {
             ["incidents", "Reported incidents"],
           ] as const
         ).map(([key, label]) => (
-          <label
+          <MapChoiceRow
             key={key}
-            className="flex items-center justify-between rounded-xl border border-[var(--mx-border)] px-3 py-2 text-sm"
-          >
-            <span>
-              {label}
-              {key === "hotspots" ? (
-                <span className="mt-0.5 block text-[11px] text-[var(--mx-text-muted)]">
-                  Red circles estimate activity from public-place density — not live foot traffic.
-                </span>
-              ) : null}
-            </span>
-            <input
-              type="checkbox"
-              checked={layers[key]}
-              onChange={() => toggleLayer(key)}
-            />
-          </label>
+            multi
+            selected={layers[key]}
+            title={label}
+            description={
+              key === "hotspots"
+                ? "Red circles estimate activity from public-place density — not live foot traffic."
+                : undefined
+            }
+            onSelect={() => toggleLayer(key)}
+          />
         ))}
       </div>
     </div>

@@ -1,5 +1,8 @@
 export {
   createBrowserSpeechService,
+  createWebSpeechService,
+  createNativeSpeechService,
+  createCloudAwareSpeechService,
   type NavigationSpeechService,
 } from "./speech";
 export {

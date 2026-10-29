@@ -22,8 +22,12 @@ Version prefix: `/api/v1`
 | GET/POST | `/api/v1/incidents` | Mixed | No traffic speeds |
 | POST | `/api/v1/auth/register` | No | |
 | POST | `/api/v1/auth/login` | No | |
+| GET | `/api/v1/auth/google/status` | No | Whether Google sign-in is configured |
+| POST | `/api/v1/auth/google` | No | Google ID token → session |
+| GET | `/api/v1/auth/github/status` | No | Whether GitHub sign-in is configured |
+| POST | `/api/v1/auth/github` | No | GitHub OAuth code + redirectUri → session |
 | GET | `/api/v1/me` | User | |
-| DELETE | `/api/v1/me` | User | Password + exact `DELETE` confirmation; transactional account deletion |
+| DELETE | `/api/v1/me` | User | Password (or OAuth-only) + exact `DELETE` confirmation; transactional account deletion |
 | GET/POST | `/api/v1/me/saved-places` | User | |
 | GET | `/api/v1/map-styles` | No | Availability flags |
 | GET | `/api/v1/admin/overview` | Moderator+ | Live stats |

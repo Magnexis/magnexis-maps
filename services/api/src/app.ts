@@ -24,6 +24,7 @@ import { registerAdminRoutes } from "./routes/admin.js";
 import { registerMapStyleRoutes } from "./routes/map-styles.js";
 import { registerTomTomProxyRoutes } from "./routes/tomtom-proxy.js";
 import { registerGoogleProxyRoutes } from "./routes/google-proxy.js";
+import { registerTtsRoutes } from "./routes/tts.js";
 import { registerHotspotRoutes } from "./routes/hotspots.js";
 import { authPlugin } from "./plugins/auth.js";
 
@@ -98,6 +99,7 @@ export async function buildApp(deps: AppDeps) {
   await registerMapStyleRoutes(app);
   await registerTomTomProxyRoutes(app);
   await registerGoogleProxyRoutes(app);
+  await registerTtsRoutes(app);
 
   app.setErrorHandler((error, _request, reply) => {
     if (error instanceof ZodError) {

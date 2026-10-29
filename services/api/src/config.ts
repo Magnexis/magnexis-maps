@@ -22,6 +22,8 @@ const ConfigSchema = z.object({
   guestReportRateLimitMax: z.coerce.number().default(5),
   logLevel: z.string().default("info"),
   googleOauthClientId: z.string().optional(),
+  githubOauthClientId: z.string().optional(),
+  githubOauthClientSecret: z.string().optional(),
 });
 
 export type AppConfig = z.infer<typeof ConfigSchema>;
@@ -31,6 +33,11 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     env.GOOGLE_OAUTH_CLIENT_ID?.trim() ||
     env.NEXT_PUBLIC_GOOGLE_OAUTH_CLIENT_ID?.trim() ||
     undefined;
+  const githubOauthClientId =
+    env.GITHUB_OAUTH_CLIENT_ID?.trim() ||
+    env.NEXT_PUBLIC_GITHUB_OAUTH_CLIENT_ID?.trim() ||
+    undefined;
+  const githubOauthClientSecret = env.GITHUB_OAUTH_CLIENT_SECRET?.trim() || undefined;
   return ConfigSchema.parse({
     nodeEnv: env.NODE_ENV,
     host: env.API_HOST,
@@ -44,5 +51,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     guestReportRateLimitMax: env.GUEST_REPORT_RATE_LIMIT_MAX,
     logLevel: env.LOG_LEVEL,
     googleOauthClientId: googleOauthClientId || undefined,
+    githubOauthClientId: githubOauthClientId || undefined,
+    githubOauthClientSecret: githubOauthClientSecret || undefined,
   });
 }

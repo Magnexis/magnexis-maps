@@ -28,6 +28,9 @@ env:
   IPHONE_SHARE_URL: https://magnexis-maps.netlify.app
   IPHONE_PRIVACY_URL: https://magnexis-maps.netlify.app/privacy/
   IPHONE_SUPPORT_URL: https://magnexis-maps.netlify.app/support/
+  NEXT_PUBLIC_GOOGLE_OAUTH_CLIENT_ID: ${{ vars.NEXT_PUBLIC_GOOGLE_OAUTH_CLIENT_ID || secrets.NEXT_PUBLIC_GOOGLE_OAUTH_CLIENT_ID }}
+  NEXT_PUBLIC_GITHUB_OAUTH_CLIENT_ID: ${{ vars.NEXT_PUBLIC_GITHUB_OAUTH_CLIENT_ID || secrets.NEXT_PUBLIC_GITHUB_OAUTH_CLIENT_ID }}
+  NEXT_PUBLIC_MAPILLARY_ACCESS_TOKEN: ${{ secrets.NEXT_PUBLIC_MAPILLARY_ACCESS_TOKEN }}
 
 jobs:
   simulator:

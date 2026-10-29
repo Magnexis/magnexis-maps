@@ -23,15 +23,21 @@ export async function deleteAccount(
     const account = await client.query<{
       password_hash: string | null;
       google_sub: string | null;
+      github_id: string | null;
     }>(
-      "SELECT password_hash, google_sub FROM users WHERE id = $1 AND deleted_at IS NULL FOR UPDATE",
+      "SELECT password_hash, google_sub, github_id FROM users WHERE id = $1 AND deleted_at IS NULL FOR UPDATE",
       [userId],
     );
     if (!account.rows[0])
       throw new UnauthorizedError(
         "Your session is no longer active. Sign in again.",
       );
-    const { password_hash: hash, google_sub: googleSub } = account.rows[0];
+    const {
+      password_hash: hash,
+      google_sub: googleSub,
+      github_id: githubId,
+    } = account.rows[0];
+    const oauthOnly = Boolean(googleSub || githubId);
     if (hash) {
       if (!password) {
         throw new ForbiddenError(
@@ -43,13 +49,13 @@ export async function deleteAccount(
           "The password did not match. Your account has not been deleted.",
         );
       }
-    } else if (!googleSub) {
+    } else if (!oauthOnly) {
       throw new ForbiddenError(
         "This account cannot be deleted with the provided confirmation.",
       );
     } else if (password) {
       throw new ForbiddenError(
-        "This Google account has no password. Confirm with DELETE only.",
+        "This account has no password. Confirm with DELETE only.",
       );
     }
 

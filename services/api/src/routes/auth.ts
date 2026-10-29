@@ -2,6 +2,7 @@ import type { FastifyInstance } from "fastify";
 import bcrypt from "bcryptjs";
 import {
   CreateSavedPlaceSchema,
+  GitHubAuthCodeSchema,
   GoogleIdTokenSchema,
   LoginSchema,
   RegisterSchema,
@@ -14,6 +15,10 @@ import {
   upsertGoogleUser,
   verifyGoogleIdToken,
 } from "../services/google-oauth.js";
+import {
+  exchangeGitHubCode,
+  upsertGitHubUser,
+} from "../services/github-oauth.js";
 
 export async function registerAuthRoutes(app: FastifyInstance) {
   app.get("/api/v1/auth/google/status", async () => ({
@@ -39,6 +44,39 @@ export async function registerAuthRoutes(app: FastifyInstance) {
     );
     return reply.send(session);
   });
+
+  app.get("/api/v1/auth/github/status", async () => ({
+    configured: Boolean(
+      app.config.githubOauthClientId && app.config.githubOauthClientSecret,
+    ),
+    clientId: app.config.githubOauthClientId
+      ? app.config.githubOauthClientId
+      : null,
+  }));
+
+  app.post("/api/v1/auth/github", async (request, reply) => {
+    const clientId = app.config.githubOauthClientId;
+    const clientSecret = app.config.githubOauthClientSecret;
+    if (!clientId || !clientSecret) {
+      throw new ValidationError(
+        "GitHub sign-in is not configured. Set GITHUB_OAUTH_CLIENT_ID and GITHUB_OAUTH_CLIENT_SECRET on the API.",
+      );
+    }
+    const body = GitHubAuthCodeSchema.parse(request.body);
+    const identity = await exchangeGitHubCode({
+      code: body.code,
+      clientId,
+      clientSecret,
+      redirectUri: body.redirectUri,
+    });
+    const session = await upsertGitHubUser(
+      app.db,
+      identity,
+      app.config.jwtSecret,
+    );
+    return reply.send(session);
+  });
+
 
   app.post("/api/v1/auth/register", async (request, reply) => {
     const body = RegisterSchema.parse(request.body);
@@ -111,7 +149,7 @@ export async function registerAuthRoutes(app: FastifyInstance) {
     if (!row) throw new UnauthorizedError("Invalid email or password");
     if (!row.password_hash) {
       throw new ValidationError(
-        "This account uses Google sign-in. Continue with Google instead of a password.",
+        "This account uses Google or GitHub sign-in. Continue with that provider instead of a password.",
       );
     }
 

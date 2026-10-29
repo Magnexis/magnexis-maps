@@ -22,9 +22,18 @@ export const GoogleIdTokenSchema = z
 
 export type GoogleIdToken = z.infer<typeof GoogleIdTokenSchema>;
 
+export const GitHubAuthCodeSchema = z
+  .object({
+    code: z.string().min(8).max(256),
+    redirectUri: z.string().url().max(2048),
+  })
+  .strict();
+
+export type GitHubAuthCode = z.infer<typeof GitHubAuthCodeSchema>;
+
 export const DeleteAccountSchema = z
   .object({
-    /** Required for password accounts; omit for Google-only accounts. */
+    /** Required for password accounts; omit for OAuth-only accounts. */
     password: z.string().min(1).max(128).optional(),
     confirmation: z.literal("DELETE"),
   })

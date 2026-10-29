@@ -338,21 +338,27 @@ export async function resolvePlacePhotos(options: {
 }): Promise<PlacePhoto[]> {
   const intent = options.intent ?? "place";
   const wantWikimedia = intent === "place";
+  // Dropped pins want imagery of *that* coordinate — Street View / Mapillary first.
+  const pinExact = intent === "map_pin";
 
   const googleStatus = await fetchGoogleProviderStatus();
   const googleFirst =
     googleStatus.configured && googleStatus.photoPriority === "before";
 
-  const [googlePlaces, tomtomPlaces, mapillary, wikimedia] = await Promise.all([
-    googleStatus.configured
-      ? fetchGooglePlacesThumb(options.lng, options.lat, options.name)
-      : Promise.resolve(null),
-    fetchTomTomPlacesThumb(options.lng, options.lat, options.name),
-    fetchMapillaryThumb(options.lng, options.lat),
-    wantWikimedia
-      ? fetchWikimediaThumb(options.lng, options.lat, options.name, 150)
-      : Promise.resolve(null),
-  ]);
+  const [googlePlaces, tomtomPlaces, mapillary, wikimedia, streetView] =
+    await Promise.all([
+      googleStatus.configured
+        ? fetchGooglePlacesThumb(options.lng, options.lat, options.name)
+        : Promise.resolve(null),
+      fetchTomTomPlacesThumb(options.lng, options.lat, options.name),
+      fetchMapillaryThumb(options.lng, options.lat),
+      wantWikimedia
+        ? fetchWikimediaThumb(options.lng, options.lat, options.name, 150)
+        : Promise.resolve(null),
+      googleStatus.configured
+        ? fetchGoogleStreetViewThumb(options.lng, options.lat)
+        : Promise.resolve(null),
+    ]);
 
   const collected: PlacePhoto[] = [];
   const seen = new Set<string>();
@@ -363,11 +369,20 @@ export async function resolvePlacePhotos(options: {
     collected.push(photo);
   };
 
-  // Configurable Google ↔ Mapillary order; TomTom POI when keyed; listing / props; Wikipedia.
-  if (googleFirst) push(googlePlaces);
-  push(tomtomPlaces);
-  push(mapillary);
-  if (!googleFirst) push(googlePlaces);
+  if (pinExact) {
+    // Exact-at-point imagery for map taps / dropped pins.
+    push(streetView);
+    push(mapillary);
+    if (googleFirst) push(googlePlaces);
+    push(tomtomPlaces);
+    if (!googleFirst) push(googlePlaces);
+  } else {
+    // Configurable Google ↔ Mapillary order; TomTom POI when keyed; listing / props; Wikipedia.
+    if (googleFirst) push(googlePlaces);
+    push(tomtomPlaces);
+    push(mapillary);
+    if (!googleFirst) push(googlePlaces);
+  }
 
   const direct = firstHttpUrl(options.photoUrl);
   if (direct) {
@@ -389,15 +404,17 @@ export async function resolvePlacePhotos(options: {
 
   push(wikimedia);
 
-  // Street View Static fills gaps (especially map_pin when Mapillary misses).
-  if (collected.length === 0 && googleStatus.configured) {
-    push(await fetchGoogleStreetViewThumb(options.lng, options.lat));
-  } else if (
-    intent === "map_pin" &&
+  // Street View Static fills remaining gaps for place cards.
+  if (
+    !pinExact &&
     googleStatus.configured &&
-    !collected.some((p) => p.source === "google" || p.source === "google_street_view")
+    !collected.some(
+      (p) => p.source === "google" || p.source === "google_street_view",
+    )
   ) {
-    push(await fetchGoogleStreetViewThumb(options.lng, options.lat));
+    push(streetView);
+  } else if (!pinExact && collected.length === 0 && googleStatus.configured) {
+    push(streetView);
   }
 
   return collected.slice(0, 4);

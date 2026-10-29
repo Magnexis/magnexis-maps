@@ -112,6 +112,7 @@ export function HorizonChrome() {
     layers,
   } = useAppStore();
   const startNavigation = useStartNavigation();
+  const navigationActive = useAppStore((s) => s.navigationActive);
   const [locationPending, setLocationPending] = useState(false);
   const [locationError, setLocationError] = useState<string | null>(null);
   const liveCamera = useLiveMapCamera();
@@ -120,10 +121,18 @@ export function HorizonChrome() {
   const settingsOpen = panel === "settings" && !sheetCollapsed;
   const sheetOpen = !sheetCollapsed && !settingsOpen;
   const activeRoute = getActiveRoute(directions);
+  const tripPending =
+    Boolean(directions.origin) ||
+    Boolean(directions.destination) ||
+    directions.routes.length > 0;
   const showPlacePeek =
     sheetCollapsed &&
     Boolean(selectedPlace || selectedSearch) &&
     selectedSearch?.source !== "user_submission";
+
+  function openActiveRoute() {
+    openScreen("directions");
+  }
 
   function clearSearch() {
     setSearchQuery("");
@@ -650,8 +659,14 @@ export function HorizonChrome() {
               size="icon"
               variant="primary"
               className="h-11 w-11 !rounded-full sm:h-10 sm:w-10"
-              aria-label="Start navigation"
-              title="Start turn-by-turn navigation"
+              aria-label={
+                navigationActive ? "Resume navigation" : "Start navigation"
+              }
+              title={
+                navigationActive
+                  ? "Resume turn-by-turn navigation"
+                  : "Start turn-by-turn navigation"
+              }
               onClick={() => startNavigation()}
             >
               <Navigation2 size={16} />
@@ -697,20 +712,41 @@ export function HorizonChrome() {
         </Panel>
       </nav>
 
-      {/* Status strip — above dock; desktop tucks left so the map center stays clear */}
+      {/* Status strip — tap opens the active route when one exists */}
       <div
         className="pointer-events-none absolute inset-x-0 z-10 flex justify-center px-3 md:justify-start md:pl-[max(1rem,var(--mx-safe-l))] lg:pl-5"
         style={{ bottom: "var(--mx-status-stack)" }}
       >
-        <div className="max-w-[min(100%,22rem)] truncate rounded-full border border-[var(--mx-border)] bg-[var(--mx-surface-glass)] px-3.5 py-1.5 text-[10px] font-medium tabular-nums text-[var(--mx-text)] shadow-[var(--mx-shadow-soft)] backdrop-blur-md sm:max-w-none sm:text-[11px] md:ml-[4.75rem] md:max-w-sm lg:ml-24">
-          {activeRoute
-            ? `${formatDurationSeconds(activeRoute.durationSeconds)} · arrive ${formatArrivalTime(activeRoute.durationSeconds)}${
-                formatTrafficDelay(activeRoute.trafficDelaySeconds)
-                  ? ` · ${formatTrafficDelay(activeRoute.trafficDelaySeconds)}`
-                  : ""
-              }`
-            : "Explore the map · Search above or tap Go"}
-        </div>
+        {tripPending || activeRoute ? (
+          <button
+            type="button"
+            className="pointer-events-auto max-w-[min(100%,22rem)] truncate rounded-full border border-[var(--mx-accent)] bg-[color-mix(in_srgb,var(--mx-accent)_16%,var(--mx-surface-glass))] px-3.5 py-1.5 text-left text-[10px] font-semibold tabular-nums text-[var(--mx-text)] shadow-[var(--mx-shadow-soft)] backdrop-blur-md sm:max-w-none sm:text-[11px] md:ml-[4.75rem] md:max-w-sm lg:ml-24"
+            onClick={() => {
+              if (activeRoute) {
+                startNavigation();
+              } else {
+                openActiveRoute();
+              }
+            }}
+            aria-label={
+              activeRoute
+                ? "Open active route and start navigation"
+                : "Open directions for the current trip"
+            }
+          >
+            {activeRoute
+              ? `Active route · ${formatDurationSeconds(activeRoute.durationSeconds)} · arrive ${formatArrivalTime(activeRoute.durationSeconds)}${
+                  formatTrafficDelay(activeRoute.trafficDelaySeconds)
+                    ? ` · ${formatTrafficDelay(activeRoute.trafficDelaySeconds)}`
+                    : ""
+                } · tap to ${navigationActive ? "resume" : "start"}`
+              : "Route in progress · tap to open Go"}
+          </button>
+        ) : (
+          <div className="max-w-[min(100%,22rem)] truncate rounded-full border border-[var(--mx-border)] bg-[var(--mx-surface-glass)] px-3.5 py-1.5 text-[10px] font-medium tabular-nums text-[var(--mx-text)] shadow-[var(--mx-shadow-soft)] backdrop-blur-md sm:max-w-none sm:text-[11px] md:ml-[4.75rem] md:max-w-sm lg:ml-24">
+            Explore the map · Search above or tap Go
+          </div>
+        )}
       </div>
 
       <TrafficLegend />

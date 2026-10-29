@@ -33,8 +33,9 @@ describe("native voice guidance", () => {
       expect.objectContaining({
         text: "Turn right onto Chapel Street",
         voice: 0,
-        rate: 1.5,
-        category: "ambient",
+        // Guidance rate is slightly softened for clarity (capped ~1.05).
+        rate: 1.05,
+        category: "playback",
       }),
     );
   });
@@ -53,7 +54,7 @@ describe("native voice guidance", () => {
     speech.setRate(NaN);
     await speech.speak("Continue");
     expect(TextToSpeech.speak).toHaveBeenCalledWith(
-      expect.objectContaining({ rate: 1 }),
+      expect.objectContaining({ rate: 0.95 }),
     );
     speech.dispose();
     expect(TextToSpeech.stop).toHaveBeenCalledOnce();

@@ -139,6 +139,7 @@ const SCALE_MAX_PX = 52;
  */
 export function MapMeasureRuler() {
   const units = useAppStore((s) => s.settings.units);
+  const styleId = useAppStore((s) => s.styleId);
   const imperial = units !== "metric";
   const [map, setMap] = useState<Map | null>(null);
   const [scaleLabel, setScaleLabel] = useState("—");
@@ -148,13 +149,20 @@ export function MapMeasureRuler() {
 
   const measured = useMemo(() => pathMeters(points), [points]);
 
+  // Contrast against the basemap (not chrome theme): light bar on dark maps.
+  const scaleOnDarkMap =
+    styleId === "dark" || styleId === "satellite" || styleId === "terrain";
+
   const refreshScale = useCallback(() => {
-    const m = map ?? getMap();
-    if (!m?.isStyleLoaded?.() && !m) return;
-    const live = m ?? getMap();
-    if (!live) return;
+    const live = map ?? getMap();
+    // Require a live map whose style is loaded — the old
+    // `!m?.isStyleLoaded?.() && !m` check never blocked unloaded styles.
+    if (!live || (typeof live.isStyleLoaded === "function" && !live.isStyleLoaded())) {
+      return;
+    }
     try {
       const raw = metersForVerticalPixels(live, RULER_PX);
+      if (!Number.isFinite(raw) || raw <= 0) return;
       const nice = niceScaleMeters(raw, imperial);
       const px = Math.max(
         SCALE_MIN_PX,
@@ -163,7 +171,7 @@ export function MapMeasureRuler() {
       setScaleHeightPx(px);
       setScaleLabel(formatDistanceMeters(nice, imperial ? "imperial" : "metric"));
     } catch {
-      // map not ready
+      // map not ready for unproject
     }
   }, [map, imperial]);
 
@@ -182,6 +190,11 @@ export function MapMeasureRuler() {
       map.off("resize", onMove);
     };
   }, [map, refreshScale]);
+
+  // Re-measure after basemap swaps (style.load also fires; this covers token swap).
+  useEffect(() => {
+    refreshScale();
+  }, [styleId, refreshScale]);
 
   useEffect(() => {
     if (!map) return;
@@ -260,11 +273,15 @@ export function MapMeasureRuler() {
         style={{ bottom: "var(--mx-measure-stack)" }}
       >
         <div
-          className="mx-scale-ruler pointer-events-none flex min-h-8 flex-col justify-end"
+          className={`mx-scale-ruler pointer-events-none flex min-h-8 flex-col justify-end ${
+            scaleOnDarkMap
+              ? "mx-scale-ruler--on-dark"
+              : "mx-scale-ruler--on-light"
+          }`}
           aria-label={`Map scale ${scaleLabel}`}
         >
           <div className="mx-scale-ruler__unit flex flex-col items-center px-0.5">
-            <span className="mb-0.5 max-w-[2.75rem] truncate text-center text-[9px] font-semibold leading-none tabular-nums tracking-tight text-[var(--mx-text)] [text-shadow:0_1px_2px_color-mix(in_srgb,var(--mx-bg)_70%,transparent)]">
+            <span className="mx-scale-ruler__label mb-0.5 max-w-[2.75rem] truncate text-center text-[9px] font-semibold leading-none tabular-nums tracking-tight">
               {scaleLabel}
             </span>
             <div
