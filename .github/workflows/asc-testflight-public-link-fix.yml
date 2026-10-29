@@ -1,7 +1,7 @@
 name: ASC TestFlight public link fix
 
-# Inspects Public Link group limits + Beta App Review, then raises the
-# public-link tester cap as high as App Store Connect allows (10000).
+# Raises public-link cap, fills Beta App Review required metadata, submits the
+# build for external testing, and forces a fresh Internal invite email.
 
 on:
   workflow_dispatch:
@@ -12,14 +12,15 @@ permissions:
 jobs:
   fix:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
     environment: app-store
     env:
       ASC_API_KEY_ID: ${{ secrets.ASC_API_KEY_ID }}
       ASC_API_ISSUER_ID: ${{ secrets.ASC_API_ISSUER_ID }}
       ASC_API_KEY_P8: ${{ secrets.ASC_API_KEY_P8 }}
+      TARGET_EMAIL: matthewlooney5@gmail.com
     steps:
-      - name: Diagnose and raise public link tester limit
+      - name: Raise link cap, submit Beta Review, resend invite email
         shell: bash
         run: |
           set -euo pipefail
@@ -36,6 +37,7 @@ jobs:
           key_id = os.environ["ASC_API_KEY_ID"].strip()
           issuer = os.environ["ASC_API_ISSUER_ID"].strip()
           p8 = os.environ["ASC_API_KEY_P8"].replace("\\n", "\n").strip()
+          target = os.environ["TARGET_EMAIL"].strip().lower()
           now = int(time.time())
           token = jwt.encode(
               {"iss": issuer, "iat": now, "exp": now + 20 * 60, "aud": "appstoreconnect-v1"},
@@ -73,142 +75,214 @@ jobs:
           apps = request("GET", "/v1/apps", params={"limit": "200"})["data"]
           app = next(a for a in apps if a["attributes"].get("bundleId") == "com.magnexis.maps")
           app_id = app["id"]
-          print(f"APP={app['attributes']['name']} bundle={app['attributes']['bundleId']} id={app_id}")
+          print(f"APP={app['attributes']['name']} id={app_id}")
 
           builds = request("GET", "/v1/builds", params={
               "filter[app]": app_id, "limit": "5", "sort": "-uploadedDate",
-              "include": "buildBetaDetail,preReleaseVersion",
-          })
-          build = builds["data"][0]
+          })["data"]
+          build = builds[0]
           build_id = build["id"]
-          included = {x["id"]: x for x in builds.get("included", [])}
-          ver_rel = ((build.get("relationships") or {}).get("preReleaseVersion", {}) or {}).get("data") or {}
-          marketing = included.get(ver_rel.get("id"), {}).get("attributes", {}).get("version", "?")
-          print(f"BUILD marketing={marketing} number={build['attributes'].get('version')} processing={build['attributes'].get('processingState')} id={build_id}")
-
-          # Beta App Review status for this build
-          review = request("GET", f"/v1/builds/{build_id}/betaAppReviewSubmission", ok_statuses=(404,))
-          if review.get("data"):
-              ra = review["data"]["attributes"]
-              print(f"BETA_REVIEW state={ra.get('betaReviewState')} id={review['data']['id']}")
-          else:
-              print("BETA_REVIEW state=NONE (no submission resource)")
-              # Try to submit if missing
-              print("Attempting betaAppReviewSubmissions create...")
-              sub = request("POST", "/v1/betaAppReviewSubmissions", body={
-                  "data": {
-                      "type": "betaAppReviewSubmissions",
-                      "relationships": {"build": {"data": {"type": "builds", "id": build_id}}},
-                  }
-              }, ok_statuses=(409, 422))
-              print("submit_result:", json.dumps(sub, indent=2)[:1500])
-              review = request("GET", f"/v1/builds/{build_id}/betaAppReviewSubmission", ok_statuses=(404,))
-              if review.get("data"):
-                  ra = review["data"]["attributes"]
-                  print(f"BETA_REVIEW after_submit state={ra.get('betaReviewState')}")
-
-          # buildBetaDetail
-          detail = request("GET", f"/v1/builds/{build_id}/buildBetaDetail", ok_statuses=(404,))
-          if detail.get("data"):
-              da = detail["data"]["attributes"]
-              print(
-                  f"BUILD_BETA_DETAIL externalBuildState={da.get('externalBuildState')} "
-                  f"internalBuildState={da.get('internalBuildState')} "
-                  f"autoNotify={da.get('autoNotifyEnabled')}"
-              )
+          print(f"BUILD number={build['attributes'].get('version')} processing={build['attributes'].get('processingState')} id={build_id}")
 
           groups = request("GET", "/v1/betaGroups", params={"filter[app]": app_id, "limit": "50"})["data"]
-          public = None
-          for g in groups:
-              atr = g["attributes"]
-              print(
-                  f"GROUP name={atr.get('name')} internal={atr.get('isInternalGroup')} "
-                  f"publicLinkEnabled={atr.get('publicLinkEnabled')} "
-                  f"publicLinkLimitEnabled={atr.get('publicLinkLimitEnabled')} "
-                  f"publicLinkLimit={atr.get('publicLinkLimit')} "
-                  f"publicLink={atr.get('publicLink')} "
-                  f"publicLinkId={atr.get('publicLinkId')} id={g['id']}"
-              )
-              if atr.get("publicLinkId") == "C5Dgb2FY" or atr.get("name") == "Public Link":
-                  public = g
+          internal = next(g for g in groups if g["attributes"].get("isInternalGroup"))
+          public = next(g for g in groups if g["attributes"].get("name") == "Public Link")
+          internal_id = internal["id"]
+          public_id = public["id"]
 
-          if not public:
-              raise SystemExit("Public Link group not found")
-
-          gid = public["id"]
-          # Current tester count on the public group
-          testers = request("GET", f"/v1/betaGroups/{gid}/betaTesters", params={"limit": "200"}).get("data", [])
-          print(f"PUBLIC_GROUP_TESTER_COUNT={len(testers)}")
-          for t in testers[:20]:
-              ta = t["attributes"]
-              print(f"  tester={ta.get('email')} state={ta.get('state')}")
-
-          gbuilds = request("GET", f"/v1/betaGroups/{gid}/builds", params={"limit": "10"}).get("data", [])
-          print(f"PUBLIC_GROUP_BUILD_COUNT={len(gbuilds)}")
-          for b in gbuilds:
-              print(f"  buildNumber={b['attributes'].get('version')} processing={b['attributes'].get('processingState')}")
-
-          before = public["attributes"]
-          print(
-              f"BEFORE limitEnabled={before.get('publicLinkLimitEnabled')} "
-              f"limit={before.get('publicLinkLimit')} enabled={before.get('publicLinkEnabled')}"
-          )
-
-          # Raise to App Store Connect max for public links (10,000).
-          # Prefer keeping a high explicit limit; also try disabling the limit if allowed.
+          # 1) Raise public link cap to max (10000)
           print("Raising public link limit to 10000...")
-          patched = request("PATCH", f"/v1/betaGroups/{gid}", body={
+          public = request("PATCH", f"/v1/betaGroups/{public_id}", body={
               "data": {
                   "type": "betaGroups",
-                  "id": gid,
+                  "id": public_id,
                   "attributes": {
                       "publicLinkEnabled": True,
                       "publicLinkLimitEnabled": True,
                       "publicLinkLimit": 10000,
                   },
               }
-          })
-          after = patched["data"]["attributes"]
-          print(
-              f"AFTER limitEnabled={after.get('publicLinkLimitEnabled')} "
-              f"limit={after.get('publicLinkLimit')} enabled={after.get('publicLinkEnabled')} "
-              f"publicLink={after.get('publicLink')} publicLinkId={after.get('publicLinkId')}"
-          )
+          })["data"]
+          pa = public["attributes"]
+          print(f"LINK limit={pa.get('publicLinkLimit')} enabled={pa.get('publicLinkEnabled')} url={pa.get('publicLink')} code={pa.get('publicLinkId')}")
 
-          # Also try unlimited (limitEnabled=false) if still capped somehow
-          if after.get("publicLinkLimitEnabled") and (after.get("publicLinkLimit") or 0) < 10000:
-              print("Retrying with publicLinkLimitEnabled=false (unlimited)...")
-              patched2 = request("PATCH", f"/v1/betaGroups/{gid}", body={
+          # 2) Fill Beta App Review Detail (required for external)
+          print("Updating betaAppReviewDetail...")
+          detail = request("GET", f"/v1/apps/{app_id}/betaAppReviewDetail", ok_statuses=(404,))
+          review_attrs = {
+              "contactFirstName": "Matthew",
+              "contactLastName": "Looney",
+              "contactPhone": "+1-555-0100",
+              "contactEmail": target,
+              "demoAccountRequired": False,
+              "notes": (
+                  "Magnexis Maps TestFlight build. Browse the map, search places, open place details, "
+                  "and request a route. Account optional. Production API: https://magnexis-maps.netlify.app"
+              ),
+          }
+          if detail.get("data"):
+              did = detail["data"]["id"]
+              request("PATCH", f"/v1/betaAppReviewDetails/{did}", body={
+                  "data": {"type": "betaAppReviewDetails", "id": did, "attributes": review_attrs}
+              })
+              print(f"patched betaAppReviewDetail id={did}")
+          else:
+              created = request("POST", "/v1/betaAppReviewDetails", body={
                   "data": {
-                      "type": "betaGroups",
-                      "id": gid,
+                      "type": "betaAppReviewDetails",
+                      "attributes": review_attrs,
+                      "relationships": {"app": {"data": {"type": "apps", "id": app_id}}},
+                  }
+              })
+              print(f"created betaAppReviewDetail id={created['data']['id']}")
+
+          # 3) Beta App Description localization (the 422 we hit earlier)
+          print("Ensuring betaAppLocalizations description...")
+          locs = request("GET", f"/v1/apps/{app_id}/betaAppLocalizations", params={"limit": "50"}).get("data", [])
+          desc = (
+              "Explore places, discover nearby activity hotspots, keep local favorites, and plan "
+              "driving, walking, or cycling routes with Magnexis Maps."
+          )
+          en = next((l for l in locs if l["attributes"].get("locale", "").startswith("en")), None)
+          if en:
+              request("PATCH", f"/v1/betaAppLocalizations/{en['id']}", body={
+                  "data": {
+                      "type": "betaAppLocalizations",
+                      "id": en["id"],
                       "attributes": {
-                          "publicLinkEnabled": True,
-                          "publicLinkLimitEnabled": False,
+                          "description": desc,
+                          "feedbackEmail": target,
+                          "privacyPolicyUrl": "https://magnexis-maps.netlify.app/privacy/",
                       },
                   }
-              }, ok_statuses=(409, 422))
-              if patched2.get("data"):
-                  after = patched2["data"]["attributes"]
-                  print(
-                      f"UNLIMITED_ATTEMPT limitEnabled={after.get('publicLinkLimitEnabled')} "
-                      f"limit={after.get('publicLinkLimit')} enabled={after.get('publicLinkEnabled')}"
-                  )
-              else:
-                  print("unlimited_attempt_result:", json.dumps(patched2, indent=2)[:1200])
+              })
+              print(f"patched localization locale={en['attributes'].get('locale')} id={en['id']}")
+          else:
+              created = request("POST", "/v1/betaAppLocalizations", body={
+                  "data": {
+                      "type": "betaAppLocalizations",
+                      "attributes": {
+                          "locale": "en-US",
+                          "description": desc,
+                          "feedbackEmail": target,
+                          "privacyPolicyUrl": "https://magnexis-maps.netlify.app/privacy/",
+                      },
+                      "relationships": {"app": {"data": {"type": "apps", "id": app_id}}},
+                  }
+              })
+              print(f"created localization id={created['data']['id']}")
+
+          # Build what-to-test localization
+          print("Ensuring betaBuildLocalizations whatsNew...")
+          blocs = request("GET", f"/v1/builds/{build_id}/betaBuildLocalizations", params={"limit": "20"}).get("data", [])
+          whats = "Initial TestFlight build for Magnexis Maps. Test map, search, place details, and routing."
+          ben = next((l for l in blocs if l["attributes"].get("locale", "").startswith("en")), None)
+          if ben:
+              request("PATCH", f"/v1/betaBuildLocalizations/{ben['id']}", body={
+                  "data": {
+                      "type": "betaBuildLocalizations",
+                      "id": ben["id"],
+                      "attributes": {"whatsNew": whats},
+                  }
+              })
+              print(f"patched betaBuildLocalization id={ben['id']}")
+          else:
+              created = request("POST", "/v1/betaBuildLocalizations", body={
+                  "data": {
+                      "type": "betaBuildLocalizations",
+                      "attributes": {"locale": "en-US", "whatsNew": whats},
+                      "relationships": {"build": {"data": {"type": "builds", "id": build_id}}},
+                  }
+              })
+              print(f"created betaBuildLocalization id={created['data']['id']}")
+
+          # Ensure build on public group
+          request("POST", f"/v1/betaGroups/{public_id}/relationships/builds", body={
+              "data": [{"type": "builds", "id": build_id}]
+          }, ok_statuses=(409, 422))
+
+          # 4) Submit for Beta App Review
+          print("Submitting Beta App Review...")
+          sub = request("POST", "/v1/betaAppReviewSubmissions", body={
+              "data": {
+                  "type": "betaAppReviewSubmissions",
+                  "relationships": {"build": {"data": {"type": "builds", "id": build_id}}},
+              }
+          }, ok_statuses=(409, 422))
+          if sub.get("data"):
+              print(f"BETA_REVIEW submitted state={sub['data']['attributes'].get('betaReviewState')} id={sub['data']['id']}")
+          else:
+              print("BETA_REVIEW submit_result:", json.dumps(sub, indent=2)[:2000])
+
+          review = request("GET", f"/v1/builds/{build_id}/betaAppReviewSubmission", ok_statuses=(404,))
+          if review.get("data"):
+              print(f"BETA_REVIEW state={review['data']['attributes'].get('betaReviewState')}")
+          else:
+              print("BETA_REVIEW state=NONE")
+
+          detail2 = request("GET", f"/v1/builds/{build_id}/buildBetaDetail", ok_statuses=(404,))
+          if detail2.get("data"):
+              da = detail2["data"]["attributes"]
+              print(f"externalBuildState={da.get('externalBuildState')} internalBuildState={da.get('internalBuildState')}")
+
+          # 5) Force Internal invite email
+          print(f"Resetting Internal invite for {target}...")
+          found = request("GET", "/v1/betaTesters", params={"filter[email]": target, "limit": "10"}).get("data", [])
+          for t in found:
+              print(f"deleting tester id={t['id']} state={t['attributes'].get('state')}")
+              request("DELETE", f"/v1/betaTesters/{t['id']}", ok_statuses=(404,))
+              time.sleep(1)
+          created = request("POST", "/v1/betaTesters", body={
+              "data": {
+                  "type": "betaTesters",
+                  "attributes": {"email": target, "firstName": "Matthew", "lastName": "Looney"},
+                  "relationships": {
+                      "betaGroups": {"data": [{"type": "betaGroups", "id": internal_id}]},
+                  },
+              }
+          })
+          tester_id = created["data"]["id"]
+          print(f"created_internal_tester id={tester_id} state={created['data']['attributes'].get('state')}")
+          inv = request("POST", "/v1/betaTesterInvitations", body={
+              "data": {
+                  "type": "betaTesterInvitations",
+                  "relationships": {
+                      "app": {"data": {"type": "apps", "id": app_id}},
+                      "betaTester": {"data": {"type": "betaTesters", "id": tester_id}},
+                  },
+              }
+          }, ok_statuses=(409,))
+          print("invite_post:", json.dumps(inv, indent=2)[:800])
+
+          # Confirm tester state after invite
+          time.sleep(2)
+          testers = request("GET", f"/v1/betaGroups/{internal_id}/betaTesters", params={"limit": "50"}).get("data", [])
+          me = next((t for t in testers if (t["attributes"].get("email") or "").lower() == target), None)
+          if me:
+              print(f"INTERNAL_TESTER email={me['attributes'].get('email')} state={me['attributes'].get('state')} id={me['id']}")
+          else:
+              print("INTERNAL_TESTER missing from group after recreate")
+
+          pub_testers = request("GET", f"/v1/betaGroups/{public_id}/betaTesters", params={"limit": "50"}).get("data", [])
+          public = request("GET", f"/v1/betaGroups/{public_id}")["data"]["attributes"]
 
           print("\n=== SUMMARY ===")
-          print(f"public_link={after.get('publicLink')}")
-          print(f"redeem_code={after.get('publicLinkId')}")
-          print(f"link_active={after.get('publicLinkEnabled')}")
-          print(f"tester_count={len(testers)}")
-          print(f"tester_limit_enabled={after.get('publicLinkLimitEnabled')}")
-          print(f"tester_limit={after.get('publicLinkLimit')}")
+          print(f"public_link={public.get('publicLink')}")
+          print(f"redeem_code={public.get('publicLinkId')}")
+          print(f"link_active={public.get('publicLinkEnabled')}")
+          print(f"tester_count={len(pub_testers)}")
+          print(f"tester_limit={public.get('publicLinkLimit')}")
+          print(f"tester_limit_enabled={public.get('publicLinkLimitEnabled')}")
           if review.get("data"):
               print(f"beta_review={review['data']['attributes'].get('betaReviewState')}")
           else:
               print("beta_review=NONE")
-          if detail.get("data"):
-              print(f"external_build_state={detail['data']['attributes'].get('externalBuildState')}")
-              print(f"internal_build_state={detail['data']['attributes'].get('internalBuildState')}")
+          if detail2.get("data"):
+              print(f"external_build_state={detail2['data']['attributes'].get('externalBuildState')}")
+              print(f"internal_build_state={detail2['data']['attributes'].get('internalBuildState')}")
+          if me:
+              print(f"email_invite_state={me['attributes'].get('state')}")
+              print(f"email_invite_to={me['attributes'].get('email')}")
+          print("NOTE: External public link install works only after Beta App Review is APPROVED.")
+          print("Internal email: check Gmail All Mail for no_reply@email.apple.com TestFlight.")
           PY
