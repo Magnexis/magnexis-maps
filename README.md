@@ -64,6 +64,12 @@ Most mapping experiences hide a hard truth: search, routing, and imagery depend 
 | **Community with moderation** | Map corrections are submitted as reports and reviewed before place data changes. |
 | **Open development** | Source, documentation, releases, and typed packages are published for transparency and integration. |
 
+### Compared with Google Maps
+
+Magnexis covers the familiar map → search → place → directions → navigate loop with a polished Horizon surface, then differentiates on trust, ownership, and openness: no fabricated geography, moderated community edits, transactional account deletion, a public API client, and the same UI on web, desktop, and iPhone.
+
+Full side-by-side: [docs/google-maps-parity.md](./docs/google-maps-parity.md).
+
 ---
 
 ## Product overview

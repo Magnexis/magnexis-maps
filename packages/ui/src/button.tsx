@@ -20,13 +20,13 @@ export function Button({
         "disabled:pointer-events-none disabled:opacity-45",
         "active:scale-[0.98]",
         variant === "primary" &&
-          "bg-[var(--mx-accent)] text-white shadow-[0_8px_24px_rgba(49,136,255,0.35)] hover:brightness-110",
+          "bg-[var(--mx-accent)] text-white shadow-[0_8px_24px_color-mix(in_srgb,var(--mx-accent)_38%,transparent)] hover:brightness-110",
         variant === "secondary" &&
           "bg-[var(--mx-surface-2)] text-[var(--mx-text)] hover:bg-[var(--mx-border-strong)]",
         variant === "ghost" &&
           "bg-transparent text-[var(--mx-text-muted)] hover:bg-[var(--mx-surface-2)] hover:text-[var(--mx-text)]",
         variant === "glass" &&
-          "border border-[var(--mx-border)] bg-[var(--mx-control)] text-[var(--mx-text)] shadow-[var(--mx-shadow-soft)] backdrop-blur-xl hover:border-[var(--mx-border-strong)]",
+          "border border-[var(--mx-border)] bg-[var(--mx-control)] text-[var(--mx-text)] shadow-[var(--mx-shadow-soft)] backdrop-blur-xl hover:border-[var(--mx-border-strong)] hover:shadow-[var(--mx-shadow-search)]",
         variant === "danger" &&
           "bg-[var(--mx-danger)] text-white hover:brightness-110",
         size === "sm" && "h-9 rounded-[var(--mx-radius-sm)] px-3 text-sm",

@@ -16,7 +16,7 @@ const outfit = Outfit({
 export const metadata: Metadata = {
   title: "Magnexis Maps",
   description:
-    "Cross-platform geographic intelligence, mapping, and navigation by Magnexis LLC.",
+    "Maps, search, directions, and navigation by Magnexis LLC — honest geography across web, desktop, and iPhone.",
   icons: {
     icon: [
       { url: "/icon.png", type: "image/png" },

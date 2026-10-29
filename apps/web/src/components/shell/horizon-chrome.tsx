@@ -257,10 +257,11 @@ export function HorizonChrome() {
             />
           </button>
 
-          <Panel className="flex min-w-0 flex-1 items-center gap-1.5 !rounded-full px-2.5 py-1 sm:gap-2 sm:px-3.5 sm:py-1.5 md:max-w-2xl lg:max-w-3xl">
+          <Panel className="mx-search-pill flex min-w-0 flex-1 items-center gap-1.5 !rounded-full px-2.5 py-1 sm:gap-2 sm:px-3.5 sm:py-1.5 md:max-w-2xl lg:max-w-3xl">
             <Search
               size={18}
-              className="ml-0.5 shrink-0 text-[var(--mx-text-muted)] sm:ml-1"
+              className="ml-0.5 shrink-0 text-[var(--mx-accent)] sm:ml-1"
+              aria-hidden
             />
             <Input
               ref={searchRef}
@@ -283,8 +284,8 @@ export function HorizonChrome() {
                 }
                 openPanel("search");
               }}
-              placeholder="Search places — Enter for directions"
-              className="h-10 min-w-0 flex-1 !rounded-full border-0 bg-transparent px-1.5 text-base shadow-none focus:!border-transparent focus:!ring-0 sm:h-10 sm:px-2 sm:text-sm md:placeholder:tracking-normal"
+              placeholder="Search Magnexis Maps"
+              className="h-10 min-w-0 flex-1 !rounded-full border-0 bg-transparent px-1.5 text-base shadow-none placeholder:text-[var(--mx-text-muted)] focus:!border-transparent focus:!ring-0 sm:h-10 sm:px-2 sm:text-sm"
               aria-label="Universal search"
             />
             {searchQuery.trim() ? (
@@ -298,13 +299,13 @@ export function HorizonChrome() {
                 <X size={14} />
               </Button>
             ) : (
-              <kbd className="mr-0.5 hidden shrink-0 rounded-full border border-[var(--mx-border)] px-1.5 py-0.5 text-[10px] text-[var(--mx-text-muted)] md:inline">
+              <kbd className="mr-0.5 hidden shrink-0 rounded-full border border-[var(--mx-border)] bg-[var(--mx-surface-2)] px-1.5 py-0.5 text-[10px] font-medium text-[var(--mx-text-muted)] md:inline">
                 ⌘K
               </kbd>
             )}
           </Panel>
 
-          <Panel className="flex shrink-0 items-center gap-0.5 p-1 sm:gap-1 sm:p-1.5">
+          <Panel className="mx-chrome-cluster flex shrink-0 items-center gap-0.5 !rounded-full p-1 sm:gap-1 sm:p-1.5">
             <span
               className={`mx-0.5 hidden h-2 w-2 rounded-full md:inline ${
                 apiHealthy === true
@@ -440,24 +441,18 @@ export function HorizonChrome() {
           }
         >
           <Panel className="relative flex min-h-0 flex-1 flex-col overflow-hidden !rounded-2xl bg-[var(--mx-surface)] shadow-[var(--mx-shadow-float)] md:!rounded-[1.25rem] md:w-[min(100%-2rem,var(--mx-panel-width,var(--mx-panel-max,22rem)))] lg:w-[min(100%-2.5rem,var(--mx-panel-width,26rem))] xl:w-[min(100%-3rem,var(--mx-panel-width,28rem))]">
-            <div className="flex shrink-0 items-center justify-between gap-3 border-b border-[var(--mx-border)] px-4 py-3 sm:px-5">
-              <div className="min-w-0">
-                <h2 className="font-display text-base font-semibold tracking-tight md:text-[1.05rem]">
-                  {PANEL_TITLE[panel]}
-                </h2>
-                <p className="text-xs text-[var(--mx-text-muted)]">
-                  {QUICK.find((q) => q.id === panel)?.label ?? "Magnexis Maps"}
-                </p>
-              </div>
+            <div className="flex shrink-0 items-center justify-between gap-3 border-b border-[var(--mx-border)] px-4 py-3.5 sm:px-5">
+              <h2 className="min-w-0 truncate font-display text-base font-semibold tracking-tight md:text-[1.05rem]">
+                {PANEL_TITLE[panel]}
+              </h2>
               <Button
-                size="sm"
-                variant="secondary"
+                size="icon"
+                variant="ghost"
                 aria-label="Close screen"
-                className="min-h-10 shrink-0 gap-1.5 px-3"
+                className="h-10 w-10 shrink-0"
                 onClick={closePanel}
               >
-                <X size={14} />
-                <span>Close</span>
+                <X size={16} />
               </Button>
             </div>
             <div className="mx-scroll min-h-0 flex-1 overflow-y-auto p-4 sm:p-5">
@@ -484,11 +479,11 @@ export function HorizonChrome() {
           right: "max(0.75rem, var(--mx-safe-r))",
         }}
       >
-        <div className="pointer-events-auto flex flex-col gap-2 sm:gap-2.5">
+        <div className="pointer-events-auto mx-fab-col flex flex-col gap-2 sm:gap-2.5">
           <Button
             size="icon"
             variant="glass"
-            className="h-11 w-11 sm:h-10 sm:w-10"
+            className="h-11 w-11 !rounded-full sm:h-10 sm:w-10"
             aria-label="Zoom in"
             onClick={() => {
               const map = getMap();
@@ -501,7 +496,7 @@ export function HorizonChrome() {
           <Button
             size="icon"
             variant="glass"
-            className="h-11 w-11 sm:h-10 sm:w-10"
+            className="h-11 w-11 !rounded-full sm:h-10 sm:w-10"
             aria-label="Zoom out"
             onClick={() => {
               const map = getMap();
@@ -514,7 +509,7 @@ export function HorizonChrome() {
           <Button
             size="icon"
             variant="glass"
-            className="h-11 w-11 sm:h-10 sm:w-10"
+            className="h-11 w-11 !rounded-full sm:h-10 sm:w-10"
             aria-label="Reset map to north"
             title={
               Math.abs(liveCamera.bearing) > 1 || liveCamera.pitch > 2
@@ -556,7 +551,7 @@ export function HorizonChrome() {
           <Button
             size="icon"
             variant="glass"
-            className="h-11 w-11 sm:h-10 sm:w-10"
+            className="h-11 w-11 !rounded-full sm:h-10 sm:w-10"
             aria-label="Locate me"
             aria-busy={locationPending}
             disabled={locationPending}
@@ -597,7 +592,7 @@ export function HorizonChrome() {
           <Button
             size="icon"
             variant={buildings3d ? "primary" : "glass"}
-            className="h-11 w-11 sm:h-10 sm:w-10"
+            className="h-11 w-11 !rounded-full sm:h-10 sm:w-10"
             aria-label={
               buildings3d ? "Turn off 3D buildings" : "Turn on 3D buildings"
             }
@@ -616,7 +611,7 @@ export function HorizonChrome() {
             <Button
               size="icon"
               variant={layers.traffic ? "primary" : "glass"}
-              className="h-11 w-11 sm:h-10 sm:w-10"
+              className="h-11 w-11 !rounded-full sm:h-10 sm:w-10"
               aria-label={
                 layers.traffic ? "Hide live traffic" : "Show live traffic"
               }
@@ -634,7 +629,7 @@ export function HorizonChrome() {
           <Button
             size="icon"
             variant="glass"
-            className="h-11 w-11 sm:h-10 sm:w-10"
+            className="h-11 w-11 !rounded-full sm:h-10 sm:w-10"
             aria-label="Map layers and appearance"
             title="Layers & map appearance (L)"
             onClick={() => openScreen("layers")}
@@ -644,7 +639,7 @@ export function HorizonChrome() {
           <Button
             size="icon"
             variant="glass"
-            className="h-11 w-11 sm:h-10 sm:w-10"
+            className="h-11 w-11 !rounded-full sm:h-10 sm:w-10"
             aria-label="Report issue"
             onClick={() => openScreen("report")}
           >
@@ -654,7 +649,7 @@ export function HorizonChrome() {
             <Button
               size="icon"
               variant="primary"
-              className="h-11 w-11 sm:h-10 sm:w-10"
+              className="h-11 w-11 !rounded-full sm:h-10 sm:w-10"
               aria-label="Start navigation"
               title="Start turn-by-turn navigation"
               onClick={() => startNavigation()}
@@ -676,7 +671,7 @@ export function HorizonChrome() {
         }}
       >
         <Panel
-          className="pointer-events-auto mx-auto flex w-full max-w-[20rem] items-center justify-around !rounded-full border-[color-mix(in_srgb,var(--mx-border)_65%,transparent)] px-0.5 py-0.5 shadow-[var(--mx-shadow-soft)] sm:max-w-sm"
+          className="mx-dock pointer-events-auto mx-auto flex w-full max-w-[21rem] items-center justify-around !rounded-full px-1 py-1 sm:max-w-sm"
           data-mx-shell="unified-dock"
         >
           {QUICK.map(({ id, label, icon: Icon }) => {
@@ -687,14 +682,14 @@ export function HorizonChrome() {
                 type="button"
                 aria-label={label}
                 aria-current={active ? "page" : undefined}
-                className={`flex min-h-11 min-w-11 flex-col items-center justify-center gap-0.5 rounded-full px-2 py-1.5 text-[10px] leading-none tracking-wide transition-colors md:hover:bg-[color-mix(in_srgb,var(--mx-surface-2)_80%,transparent)] ${
+                className={`flex min-h-11 min-w-[3.15rem] flex-col items-center justify-center gap-0.5 rounded-full px-2.5 py-1.5 text-[10px] font-medium leading-none tracking-wide transition-colors md:hover:bg-[color-mix(in_srgb,var(--mx-surface-2)_80%,transparent)] ${
                   active
                     ? "bg-[color-mix(in_srgb,var(--mx-accent)_18%,transparent)] text-[var(--mx-accent)]"
                     : "text-[var(--mx-text-muted)]"
                 }`}
                 onClick={() => openScreen(id)}
               >
-                <Icon size={16} strokeWidth={active ? 2.25 : 1.75} />
+                <Icon size={17} strokeWidth={active ? 2.35 : 1.85} />
                 <span className="truncate">{label}</span>
               </button>
             );
@@ -707,14 +702,14 @@ export function HorizonChrome() {
         className="pointer-events-none absolute inset-x-0 z-10 flex justify-center px-3 md:justify-start md:pl-[max(1rem,var(--mx-safe-l))] lg:pl-5"
         style={{ bottom: "var(--mx-status-stack)" }}
       >
-        <div className="max-w-[min(100%,20rem)] truncate rounded-full border border-[var(--mx-border)] bg-[var(--mx-surface)]/95 px-3 py-1.5 text-[10px] tabular-nums text-[var(--mx-text-muted)] backdrop-blur-sm sm:max-w-none sm:text-[11px] md:ml-[4.75rem] md:max-w-xs lg:ml-24">
+        <div className="max-w-[min(100%,22rem)] truncate rounded-full border border-[var(--mx-border)] bg-[var(--mx-surface-glass)] px-3.5 py-1.5 text-[10px] font-medium tabular-nums text-[var(--mx-text)] shadow-[var(--mx-shadow-soft)] backdrop-blur-md sm:max-w-none sm:text-[11px] md:ml-[4.75rem] md:max-w-sm lg:ml-24">
           {activeRoute
             ? `${formatDurationSeconds(activeRoute.durationSeconds)} · arrive ${formatArrivalTime(activeRoute.durationSeconds)}${
                 formatTrafficDelay(activeRoute.trafficDelaySeconds)
                   ? ` · ${formatTrafficDelay(activeRoute.trafficDelaySeconds)}`
                   : ""
               }`
-            : `${mapView.center.lat.toFixed(5)}, ${mapView.center.lng.toFixed(5)} · z${mapView.zoom.toFixed(1)}`}
+            : "Explore the map · Search above or tap Go"}
         </div>
       </div>
 

@@ -1,58 +1,83 @@
-# Google Maps comparison and shared-platform parity
+# Magnexis Maps vs Google Maps
 
-Baseline: 2026-10-28. Compare workflow quality and capabilities; do not copy Google branding, assets, text, or source. The iPhone UI is built from `apps/web`; that prevents separate native screens drifting away from the current web product. This is shared-code parity, not a claim that Magnexis equals all Google Maps services.
+People reach for Google Maps out of habit. Magnexis Maps is built for the same everyday jobs—search, place details, directions, navigation, layers, sharing—while drawing a sharper line around **honest geography**, **account control**, and **open development**.
 
-Reference inspection used the public Google Maps interface (search, Directions, transport selectors, reverse endpoints, Saved, Recents, Layers, Street View and map controls) and Google's [directions documentation](https://support.google.com/maps/answer/144339?hl=en). Personal account content is not part of this comparison.
+This page is a product comparison, not a claim that Magnexis duplicates every Google service. Magnexis never invents routes, traffic, or places when providers are offline.
 
-| Workflow | Magnexis implementation reused on iPhone | Remaining difference / validation |
+Live product: [magnexis-maps.netlify.app](https://magnexis-maps.netlify.app/)
+
+---
+
+## Why choose Magnexis
+
+| You care about… | Magnexis Maps | Typical Google Maps experience |
 | --- | --- | --- |
-| Map-first home, universal search, map controls | Horizon shell and MapLibre canvas, identical sources | Physical WKWebView WebGL, keyboard, safe-area and gesture testing required |
-| Place details | Search/place cards, contacts, opening hours, imagery, share, save, directions | Provider coverage varies; no fabricated ratings or reviews |
-| Search history / saved places | Local favorites, recents, home/work; optional account saves | Account collection management and sync depth remain limited |
-| Directions | Driving/walking/cycling, stops, reorder, swap, avoid options, alternatives | Transit, flights and other unintegrated modes are absent |
-| Route selection / ETA | Real provider geometry and duration; traffic awareness where returned | No claim of Google-equivalent prediction quality |
-| Navigation | Dedicated `/navigate`, real instructions, GPS progress, speed display, native voice adapter | No automatic off-route rerouting, background/lock-screen guidance or CarPlay |
-| Layers | Standard/Night, 3D, terrain/satellite where configured, traffic and imagery gates | Licensing and configured providers determine availability |
-| Hotspots | Optional red activity circles clustered from nearby public-place density | Not live foot-traffic telemetry; a future licensed mobility provider would need a separate, disclosed adapter |
-| Street imagery | Existing Mapillary/Google adapters and credits | Native WebView compatibility and provider terms need device verification |
-| Offline use | Bundled interface, local favorites/settings, explicit offline status | Offline tile downloads, offline search and offline routing absent |
-| Sharing | Public web-root links, native iOS share sheet, validated custom app links | Universal Links require a verified domain and association file; not configured |
-| Privacy / permissions | Native foreground permission, shared policy/support pages, transactional account deletion | Hosted retention and App Store disclosures need operational review |
+| **Trustworthy results** | Routes and places come from configured providers or stored data; clear errors when a provider is unavailable | Seamless UX that can obscure outages behind cached or estimated behavior |
+| **One product everywhere** | Same Horizon interface on web, Windows desktop, and iPhone | Separate mobile/web experiences with different feature timing |
+| **Account ownership** | Register, OAuth sign-in, saved places, and **transactional account deletion** | Account deletion and data controls live deep in Google Account flows |
+| **Community corrections** | Moderated reports with apply/revert—people can improve the map without silent overwrites | Suggest-an-edit flows owned by Google’s pipeline |
+| **Open stack** | Public repo, typed API client packages, documented providers and attribution | Closed client and proprietary tile/routing stack |
+| **Privacy posture** | Foreground location on iPhone, server-side provider keys, published privacy/support pages | Broad Google account + ads ecosystem adjacency |
 
-## Expo companion status
+---
 
-The Expo Go companion is not the iPhone distribution target; `apps/iphone` bundles
-the shared web product. Its workflow now covers reachable-API health, foreground
-location, search with location bias, destination selection, driving/walking/cycling
-route requests, and selecting real route alternatives. It deliberately does not
-claim native MapLibre rendering, turn-by-turn instructions, background guidance,
-offline routes, or saved-place sync in Expo Go. Those require a development build
-or the shared iPhone target.
+## Everyday workflow parity
 
-## Hotspots
+| Workflow | Magnexis | Notes vs Google |
+| --- | --- | --- |
+| Map-first home + universal search | Horizon search pill, MapLibre canvas, bottom dock (Search / Go / Explore / Saved) | Familiar map-first pattern without Google branding |
+| Place details | Cards with address, hours/phone when present, photos, share, save, directions | No fabricated ratings or reviews |
+| Search history / saved places | Recents, favorites, Home/Work slots; optional account saves | Collection depth is intentionally focused |
+| Directions | Drive / walk / bike, stops, reorder, swap, avoid options, alternatives | Transit and flights are not claimed |
+| Route ETA | Real provider duration; traffic delay when the provider returns it | No claim of Google-equivalent traffic prediction |
+| Navigation | Dedicated `/navigate`, GPS progress, VoiceNav | No CarPlay / lock-screen guidance yet |
+| Layers | Standard / Night, 3D buildings, terrain / satellite when configured, traffic when keyed | Availability follows licensing and keys |
+| Street imagery | Mapillary and optional Google Street View Static via server proxy | Device WebView validation still recommended |
+| Sharing | Public web links + native share on iPhone | Universal Links need domain association for full deep-link polish |
+| Offline | Bundled UI + local favorites/settings | Offline tiles / offline routing not claimed |
 
-Hotspots are available in the shared Horizon map (web, desktop shell, and Capacitor
-iPhone build) and in the Expo companion after the person explicitly enables
-foreground location. A hotspot is a cluster of three or more active public places;
-the API returns a relative local activity score, and the map renders it as a red
-circle. The score is deliberately labeled as a **public-place-density estimate**.
-It is not live foot-traffic, device-location, or occupancy data, and it must not be
-described as such in App Store metadata or marketing until a lawful, documented
-mobility-data source is integrated.
+---
 
-## Compare on each meaningful change
+## What Magnexis deliberately does differently
 
-1. Run the same task on Google Maps, the desktop web UI, the web UI at iPhone width, and the actual iPhone build when available.
-2. Check search → select place → save → directions → alternate route → navigation → exit, plus permission denial, slow/offline network, empty results and cold launch.
-3. Confirm every iPhone product control uses the shared web implementation; put platform-specific behavior behind adapters.
-4. Record observed failures with the route, device/runtime, expected behavior, actual result, and regression evidence. Do not mark a provider-gated feature as unavailable merely because a key is absent; distinguish configuration from missing implementation.
-5. Validate dark/light, portrait/landscape, large text, VoiceOver, notch/home indicator, keyboard appearance, and reduced motion. Simulator browser resizing does not replace device evidence.
+1. **No fake geography** — If routing or geocoding is down, you get a structured failure—not a guessed polyline.
+2. **Chromatic maps** — Magnexis Standard and Night paints on OpenFreeMap liberty, with real road shields from OSM refs.
+3. **Provider isolation** — TomTom, Valhalla, MapTiler, Mapillary, and Google enrichment plug in behind one API.
+4. **Desktop + packages** — Windows installers and `@magnexis/api-client` / `@magnexis/shared` for integrators.
+5. **Community with moderation** — Edits are reports first, applied only after review.
 
-This is a development checklist, not a scheduled monitoring service. Future comparison passes should update this document with evidence rather than treating this baseline as permanent.
+---
 
-## Evidence from this pass
+## Side-by-side product checklist
 
-- Built the shared interface as a static iPhone bundle and synced the native project with six plugins.
-- Inspected the bundle through a loopback-only browser preview at 393×852: the MapLibre road map and labels rendered; the Directions panel exposed Drive/Walk/Bike, endpoints, swap, stops and avoidance options; Saved exposed Home/Work and its guest state.
-- Observed the corresponding Google Maps directions transport selectors and endpoint/reverse controls. Unimplemented Google service modes remain recorded as gaps above.
-- Browser observations do not validate WKWebView, native plugins, live routing services, physical GPS, speech output, OS share sheets, or an Xcode archive. Those require the device/release checklist.
+Use this when evaluating a build (web, desktop, or iPhone):
+
+1. Cold launch → map readable within a second of tiles loading  
+2. Search a known place → select → peek card → **Go**  
+3. Add a stop → swap ends → pick an alternative route  
+4. Start navigation → hear / see the next maneuver  
+5. Toggle Night / 3D / traffic (when configured)  
+6. Save a place → sign in → delete the test account  
+7. Share a place or route link and reopen it  
+
+Record gaps as **missing implementation**, **provider not configured**, or **device validation pending**—never as “broken” solely because a commercial key is absent.
+
+---
+
+## Honest gaps (so expectations stay clean)
+
+- Transit, flights, indoor maps, and Google-scale offline packs are **not** Magnexis claims today  
+- Navigation does not yet offer automatic off-route reroute or CarPlay  
+- Hotspots are **public-place-density** estimates—not live foot traffic  
+- App Store / TestFlight distribution still follows Apple’s review and SDK rules  
+
+Those gaps are product choices and roadmap items—not reasons to invent data.
+
+---
+
+## Related docs
+
+- [ROADMAP.md](../ROADMAP.md) — feature status  
+- [README.md](../README.md) — public product overview  
+- [iphone-app-store.md](./iphone-app-store.md) — store submission checklist  
+- [DATA_SOURCES.md](../DATA_SOURCES.md) — attribution and licenses  

@@ -215,9 +215,9 @@ body {
   fill: var(--mx-danger);
 }
 
-/* Search / selection pin: Google-red */
+/* Search / selection pin: Magnexis accent */
 .mx-search-pin .mx-drop-pin__shape {
-  fill: #ea4335;
+  fill: var(--mx-accent);
 }
 
 .mx-drop-pin__hole {
@@ -414,6 +414,49 @@ body {
 
 .mx-enter {
   animation: mx-fade-up 280ms var(--mx-ease) both;
+}
+
+/* Floating search — primary product affordance over the map */
+.mx-search-pill {
+  border-color: color-mix(in srgb, var(--mx-border) 70%, transparent) !important;
+  background: var(--mx-surface-glass) !important;
+  box-shadow: var(--mx-shadow-search) !important;
+  transition:
+    box-shadow 220ms var(--mx-ease),
+    border-color 220ms var(--mx-ease),
+    background-color 220ms var(--mx-ease);
+}
+.mx-search-pill:focus-within {
+  border-color: color-mix(in srgb, var(--mx-accent) 45%, var(--mx-border)) !important;
+  box-shadow:
+    0 0 0 3px color-mix(in srgb, var(--mx-accent) 18%, transparent),
+    var(--mx-shadow-search) !important;
+}
+
+.mx-chrome-cluster {
+  border-color: color-mix(in srgb, var(--mx-border) 70%, transparent) !important;
+  box-shadow: var(--mx-shadow-soft) !important;
+}
+
+.mx-dock {
+  border-color: color-mix(in srgb, var(--mx-border) 55%, transparent) !important;
+  background: var(--mx-surface-glass) !important;
+  box-shadow: var(--mx-shadow-search) !important;
+}
+
+.mx-place-peek {
+  border-color: color-mix(in srgb, var(--mx-border) 65%, transparent);
+  box-shadow: var(--mx-shadow-search);
+}
+
+.mx-fab-col > * {
+  transition:
+    transform 180ms var(--mx-ease),
+    opacity 180ms var(--mx-ease),
+    box-shadow 180ms var(--mx-ease);
+}
+.mx-fab-col > *:hover {
+  transform: translateY(-1px);
 }
 
 /* --- Horizon shell transitions (open + close; panels stay mounted) --- */

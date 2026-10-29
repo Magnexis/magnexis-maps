@@ -95,8 +95,11 @@ export function SelectedPlaceCard({ place, search }: Props) {
   }
 
   return (
-    <div className="pointer-events-none absolute inset-x-0 bottom-[5.75rem] z-30 flex justify-center px-3 md:bottom-8 md:justify-start md:pl-4 md:pr-[4.5rem] lg:pl-5 lg:pr-24">
-      <div className="pointer-events-auto mx-enter w-full max-w-md rounded-2xl border border-[var(--mx-border)] bg-[var(--mx-surface-glass)] p-3 shadow-[var(--mx-shadow-float)] backdrop-blur-[var(--mx-blur)] sm:p-4 md:max-w-[min(100%,24rem)] lg:max-w-[26rem]">
+    <div
+      className="pointer-events-none absolute inset-x-0 z-30 flex justify-center px-3 md:justify-start md:pl-4 md:pr-[4.5rem] lg:pl-5 lg:pr-24"
+      style={{ bottom: "var(--mx-peek-stack)" }}
+    >
+      <div className="mx-place-peek pointer-events-auto mx-enter w-full max-w-md rounded-2xl border bg-[var(--mx-surface-glass)] p-3 backdrop-blur-[var(--mx-blur)] sm:p-4 md:max-w-[min(100%,24rem)] lg:max-w-[26rem]">
         <PlacePhoto
           lng={coords.lng}
           lat={coords.lat}
@@ -108,7 +111,7 @@ export function SelectedPlaceCard({ place, search }: Props) {
         />
         <div className="flex items-start gap-3">
           <div className="min-w-0 flex-1">
-            <h3 className="truncate font-display text-sm font-semibold tracking-tight">
+            <h3 className="truncate font-display text-[0.95rem] font-semibold tracking-tight">
               {title}
             </h3>
             {subtitle ? (
@@ -174,15 +177,15 @@ export function SelectedPlaceCard({ place, search }: Props) {
             <X size={16} />
           </Button>
         </div>
-        <div className="mt-3 flex flex-wrap gap-2">
+        <div className="mt-3.5 flex flex-wrap gap-2">
           <Button
             size="sm"
             variant="primary"
-            className="min-w-0 flex-1 gap-1.5"
+            className="min-w-0 flex-[1.4] gap-1.5 !rounded-full"
             onClick={goDirections}
           >
             <Navigation2 size={14} />
-            Directions
+            Go
           </Button>
           {canStreetView ? (
             <Button
