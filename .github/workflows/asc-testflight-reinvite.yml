@@ -1,0 +1,140 @@
+name: ASC TestFlight reinvite
+
+# Removes matthewlooney5@gmail.com from the Internal group, waits, re-adds, and
+# POSTs a fresh betaTesterInvitation. Does not print secrets.
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  reinvite:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: app-store
+    env:
+      ASC_API_KEY_ID: ${{ secrets.ASC_API_KEY_ID }}
+      ASC_API_ISSUER_ID: ${{ secrets.ASC_API_ISSUER_ID }}
+      ASC_API_KEY_P8: ${{ secrets.ASC_API_KEY_P8 }}
+      TARGET_EMAIL: matthewlooney5@gmail.com
+    steps:
+      - name: Force fresh Internal TestFlight invitation
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json, os, time, urllib.error, urllib.request
+          from urllib.parse import urlencode
+          try:
+              import jwt
+          except ImportError:
+              import subprocess, sys
+              subprocess.check_call([sys.executable, "-m", "pip", "install", "-q", "PyJWT", "cryptography"])
+              import jwt
+
+          key_id = os.environ["ASC_API_KEY_ID"].strip()
+          issuer = os.environ["ASC_API_ISSUER_ID"].strip()
+          p8 = os.environ["ASC_API_KEY_P8"].replace("\\n", "\n").strip()
+          target = os.environ["TARGET_EMAIL"].strip().lower()
+          now = int(time.time())
+          token = jwt.encode(
+              {"iss": issuer, "iat": now, "exp": now + 15 * 60, "aud": "appstoreconnect-v1"},
+              p8,
+              algorithm="ES256",
+              headers={"kid": key_id, "typ": "JWT"},
+          )
+          if isinstance(token, bytes):
+              token = token.decode()
+
+          def request(method, path, body=None, params=None):
+              url = "https://api.appstoreconnect.apple.com" + path
+              if params:
+                  url += "?" + urlencode(params)
+              data = None
+              headers = {"Authorization": f"Bearer {token}", "Accept": "application/json"}
+              if body is not None:
+                  data = json.dumps(body).encode()
+                  headers["Content-Type"] = "application/json"
+              req = urllib.request.Request(url, data=data, headers=headers, method=method)
+              try:
+                  with urllib.request.urlopen(req, timeout=60) as resp:
+                      raw = resp.read()
+                      return json.loads(raw) if raw else {}
+              except urllib.error.HTTPError as e:
+                  err = e.read().decode("utf-8", "replace")
+                  raise SystemExit(f"{method} {url} -> HTTP {e.code}\n{err}") from e
+
+          apps = request("GET", "/v1/apps", params={"limit": "200"})["data"]
+          app = next(a for a in apps if a["attributes"].get("bundleId") == "com.magnexis.maps")
+          app_id = app["id"]
+          print(f"app={app['attributes']['name']} id={app_id}")
+
+          groups = request("GET", "/v1/betaGroups", params={"filter[app]": app_id, "limit": "50"})["data"]
+          group = next((g for g in groups if g["attributes"].get("isInternalGroup")), None)
+          if not group:
+              raise SystemExit("No internal beta group found")
+          group_id = group["id"]
+          print(f"group={group['attributes']['name']} id={group_id}")
+
+          testers = request("GET", f"/v1/betaGroups/{group_id}/betaTesters", params={"limit": "50"})["data"]
+          tester = next((t for t in testers if (t["attributes"].get("email") or "").lower() == target), None)
+          if not tester:
+              # Search all testers for this app
+              all_t = request("GET", "/v1/betaTesters", params={"filter[email]": target, "limit": "10"})["data"]
+              tester = all_t[0] if all_t else None
+          if not tester:
+              raise SystemExit(f"No beta tester found for {target}")
+          tester_id = tester["id"]
+          print(f"tester email={tester['attributes'].get('email')} state={tester['attributes'].get('state')} id={tester_id}")
+
+          builds = request("GET", "/v1/builds", params={"filter[app]": app_id, "limit": "5", "sort": "-uploadedDate"})["data"]
+          if not builds:
+              raise SystemExit("No builds")
+          build = builds[0]
+          build_id = build["id"]
+          print(f"latest buildNumber={build['attributes'].get('version')} processing={build['attributes'].get('processingState')} id={build_id}")
+
+          print("Removing tester from internal group...")
+          request("DELETE", f"/v1/betaGroups/{group_id}/relationships/betaTesters", body={
+              "data": [{"type": "betaTesters", "id": tester_id}]
+          })
+          time.sleep(3)
+
+          print("Re-adding tester to internal group...")
+          request("POST", f"/v1/betaGroups/{group_id}/relationships/betaTesters", body={
+              "data": [{"type": "betaTesters", "id": tester_id}]
+          })
+          time.sleep(2)
+
+          print("Ensuring build is on the group...")
+          request("POST", f"/v1/betaGroups/{group_id}/relationships/builds", body={
+              "data": [{"type": "builds", "id": build_id}]
+          })
+          time.sleep(2)
+
+          print("Posting betaTesterInvitations (forces Apple email)...")
+          try:
+              inv = request("POST", "/v1/betaTesterInvitations", body={
+                  "data": {
+                      "type": "betaTesterInvitations",
+                      "relationships": {
+                          "app": {"data": {"type": "apps", "id": app_id}},
+                          "betaTester": {"data": {"type": "betaTesters", "id": tester_id}},
+                      },
+                  }
+              })
+              print("invitation response:", json.dumps(inv.get("data", {}).get("attributes", inv), indent=2)[:1000])
+          except SystemExit as e:
+              print(f"invitation POST note: {e}")
+
+          testers2 = request("GET", f"/v1/betaGroups/{group_id}/betaTesters", params={"limit": "50"})["data"]
+          t2 = next((t for t in testers2 if (t["attributes"].get("email") or "").lower() == target), None)
+          if t2:
+              print(f"final tester state={t2['attributes'].get('state')} email={t2['attributes'].get('email')}")
+          gbuilds = request("GET", f"/v1/betaGroups/{group_id}/builds", params={"limit": "10"})["data"]
+          print("builds on group:", [b["attributes"].get("version") for b in gbuilds])
+          print("Done. Check Gmail All Mail for no_reply@email.apple.com within a few minutes.")
+          print("On iPhone: TestFlight must use the same Apple ID as", target)
+          PY
