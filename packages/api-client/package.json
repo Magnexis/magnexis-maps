@@ -1,6 +1,6 @@
 {
   "name": "@magnexis/api-client",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Typed HTTP client for the Magnexis Maps API",
   "license": "UNLICENSED",
   "type": "module",
@@ -32,7 +32,7 @@
     "prepublishOnly": "pnpm run build"
   },
   "dependencies": {
-    "@magnexis/shared": "workspace:*"
+    "@magnexis/shared": "workspace:^"
   },
   "devDependencies": {
     "typescript": "^5.7.2"

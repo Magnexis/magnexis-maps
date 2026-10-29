@@ -105,17 +105,17 @@ Missing routing/geocoding credentials return clear `503 PROVIDER_UNAVAILABLE` re
 
 ### GitHub Packages (API client)
 
-Install the typed API client from this repository’s packages:
+Install the typed client packages that match today’s API surface (search, routes, Google sign-in, account lifecycle):
 
 ```bash
 # .npmrc
 @magnexis:registry=https://npm.pkg.github.com
 //npm.pkg.github.com/:_authToken=YOUR_GITHUB_TOKEN
 
-npm install @magnexis/api-client@1.0.0
+npm install @magnexis/shared@1.1.0 @magnexis/api-client@1.1.0
 ```
 
-Publish is driven by `.github/workflows/publish-packages.yml` on `api-v*` tags (or manual dispatch). Desktop 1.0 releases use `desktop-v*` tags.
+Publish is driven by `.github/workflows/publish-packages.yml` on `api-v*` tags (or manual dispatch). Desktop releases use `desktop-v*` tags; the Desktop release workflow builds Windows NSIS/MSI installers and attaches them to the GitHub Release.
 
 **Security:** keep commercial keys server-side. Prefer `TOMTOM_API_KEY` + traffic proxy over `NEXT_PUBLIC_TOMTOM_KEY`. Do not put production Google keys in `NEXT_PUBLIC_*`.
 

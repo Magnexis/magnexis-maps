@@ -1,4 +1,5 @@
 # Publish @magnexis/shared and @magnexis/api-client to GitHub Packages.
+# Tag example: api-v1.1.0 (version in the tag must match package.json).
 name: Publish packages
 
 on:
@@ -6,6 +7,11 @@ on:
     tags:
       - "api-v*"
   workflow_dispatch:
+    inputs:
+      tag:
+        description: "Package version tag already on the commit (e.g. api-v1.1.0)"
+        required: true
+        default: "api-v1.1.0"
 
 permissions:
   contents: read
@@ -16,6 +22,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref }}
       - uses: pnpm/action-setup@v4
         with:
           version: 9.15.0
@@ -27,6 +35,24 @@ jobs:
           scope: "@magnexis"
       - name: Install
         run: pnpm install --frozen-lockfile
+      - name: Resolve version from tag
+        id: ver
+        shell: bash
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            TAG="${{ inputs.tag }}"
+          else
+            TAG="${GITHUB_REF_NAME}"
+          fi
+          VERSION="${TAG#api-v}"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          SHARED=$(node -p "require('./packages/shared/package.json').version")
+          CLIENT=$(node -p "require('./packages/api-client/package.json').version")
+          if [ "$SHARED" != "$VERSION" ] || [ "$CLIENT" != "$VERSION" ]; then
+            echo "Tag version $VERSION must match packages/shared ($SHARED) and packages/api-client ($CLIENT)"
+            exit 1
+          fi
       - name: Build
         run: pnpm --filter @magnexis/shared --filter @magnexis/api-client build
       - name: Configure GitHub Packages auth

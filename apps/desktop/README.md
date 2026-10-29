@@ -25,9 +25,8 @@ pnpm --filter @magnexis/desktop dev
 ## Version 1.0.0 release build
 
 The desktop build packages a static export of the shared Horizon interface; it does
-not download the web product at launch. Its frontend API still needs a configured,
-reachable HTTPS API endpoint to supply search, routing, places, and optional
-provider-backed features.
+not download the web product at launch. Release CI bakes in
+`https://magnexis-maps.netlify.app` as the API / share / privacy / support origin.
 
 On Windows, create installer artifacts with:
 
@@ -36,6 +35,11 @@ pnpm --filter @magnexis/desktop build:windows
 ```
 
 The unsigned NSIS and MSI artifacts appear under
-`apps/desktop/src-tauri/target/release/bundle/`. Run and scan each installer before
-publishing it. Windows SmartScreen/reputation and code-signing are separate release
-concerns; this project does not claim either is configured.
+`apps/desktop/src-tauri/target/release/bundle/`. GitHub Actions
+(`.github/workflows/desktop-release.yml`) builds those installers on
+`windows-latest` and uploads them to the `desktop-v*` GitHub Release with the notes
+in `RELEASE_NOTES_v1.0.0.md`.
+
+Run and scan each installer before redistributing it. Windows
+SmartScreen/reputation and code-signing are separate release concerns; this project
+does not claim either is configured.
