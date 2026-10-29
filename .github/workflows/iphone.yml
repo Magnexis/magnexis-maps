@@ -87,7 +87,8 @@ jobs:
   testflight:
     if: github.event_name == 'workflow_dispatch' && inputs.distribution == 'testflight'
     needs: simulator
-    runs-on: macos-15
+    # App Store Connect requires the iOS 26 SDK (Xcode 26+). macos-15 ships older SDKs.
+    runs-on: macos-26
     timeout-minutes: 45
     environment: app-store
     env:
@@ -100,6 +101,25 @@ jobs:
       ASC_API_KEY_P8: ${{ secrets.ASC_API_KEY_P8 }}
     steps:
       - uses: actions/checkout@v4
+      - name: Select Xcode 26 for App Store SDK requirements
+        run: |
+          set -euo pipefail
+          echo "Available Xcode apps:"
+          ls -d /Applications/Xcode*.app 2>/dev/null || true
+          DEVELOPER_DIR=""
+          for candidate in /Applications/Xcode_26*.app /Applications/Xcode.app; do
+            if [ -d "$candidate/Contents/Developer" ]; then
+              DEVELOPER_DIR="$candidate/Contents/Developer"
+              break
+            fi
+          done
+          if [ -z "$DEVELOPER_DIR" ]; then
+            echo "No Xcode 26+ install found on this runner."
+            exit 1
+          fi
+          sudo xcode-select -s "$DEVELOPER_DIR"
+          xcodebuild -version
+          xcrun --show-sdk-version --sdk iphoneos
       - name: Verify signing prerequisites without printing credentials
         shell: bash
         run: |
