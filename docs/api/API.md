@@ -23,6 +23,7 @@ Version prefix: `/api/v1`
 | POST | `/api/v1/auth/register` | No | |
 | POST | `/api/v1/auth/login` | No | |
 | GET | `/api/v1/me` | User | |
+| DELETE | `/api/v1/me` | User | Password + exact `DELETE` confirmation; transactional account deletion |
 | GET/POST | `/api/v1/me/saved-places` | User | |
 | GET | `/api/v1/map-styles` | No | Availability flags |
 | GET | `/api/v1/admin/overview` | Moderator+ | Live stats |
@@ -31,3 +32,5 @@ Version prefix: `/api/v1`
 | GET | `/api/v1/admin/ingestion-jobs` | Admin | |
 
 Validation uses Zod schemas from `@magnexis/shared`.
+
+Account deletion request/response, errors, data scope and migration requirements are documented in [account deletion](../account-deletion.md). Production base URL: `https://magnexis-maps.netlify.app`; API paths already include `/api/v1`.

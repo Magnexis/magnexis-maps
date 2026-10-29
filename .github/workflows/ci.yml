@@ -1,4 +1,4 @@
-# Optional mirror — prefer .gitlab-ci.yml for this GitLab-oriented project.
+# Shared source and API checks; native iPhone validation lives in iphone.yml.
 name: CI
 
 on:
@@ -28,25 +28,25 @@ jobs:
       DATABASE_URL: postgresql://magnexis:magnexis@localhost:5432/magnexis_maps
       JWT_SECRET: ci-test-secret-key-32chars-min
       NODE_ENV: test
+      MAGNEXIS_ACCOUNT_TEST_DATABASE_URL: postgresql://magnexis:magnexis@localhost:5432/magnexis_maps
 
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
         with:
-          version: 9
+          version: 9.15.0
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 24
           cache: pnpm
       - name: Install
-        run: pnpm install --frozen-lockfile=false
+        run: pnpm install --frozen-lockfile
       - name: Build packages
-        run: pnpm --filter @magnexis/shared --filter @magnexis/geospatial --filter @magnexis/provider-adapters --filter @magnexis/database --filter @magnexis/api-client --filter @magnexis/map-styles build
+        run: pnpm exec tsc -b packages/shared packages/geospatial packages/provider-adapters packages/database packages/api-client packages/map-styles packages/navigation
       - name: Unit tests
-        run: pnpm --filter @magnexis/shared --filter @magnexis/api test
+        run: pnpm --filter @magnexis/shared --filter @magnexis/api --filter @magnexis/web --filter @magnexis/navigation --filter @magnexis/api-client test
       - name: Migrate & seed
         run: |
-          sleep 3
           pnpm db:migrate
           pnpm db:seed
       - name: Typecheck API & web

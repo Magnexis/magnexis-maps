@@ -10,6 +10,10 @@ Magnexis Maps is an open-development mapping platform built on MapLibre: interac
 
 **Version:** 1.4.0 (Chromatic) · Official mark: [`assets/branding/magnexis-maps-logo.png`](./assets/branding/magnexis-maps-logo.png)
 
+**Website:** [magnexis-maps.netlify.app](https://magnexis-maps.netlify.app/) · [Privacy policy](https://magnexis-maps.netlify.app/privacy/) · [Support](https://magnexis-maps.netlify.app/support/) · [API health](https://magnexis-maps.netlify.app/api/v1/health)
+
+The iPhone app packages this same web interface. [GitHub Actions build and signing instructions](docs/iphone-github-actions.md) describe hosted macOS validation and TestFlight upload.
+
 ## Demo
 
 - **Product demo video:** [`docs/demo/magnexis-maps-demo.mp4`](./docs/demo/magnexis-maps-demo.mp4) — continuous live capture (MapLibre fly/ease, search, Standard → Night); regenerate with `docs/demo/record-demo.mjs`

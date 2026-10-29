@@ -10,7 +10,14 @@ on:
         default: simulator
   push:
     branches: [main]
-    paths: ["apps/iphone/**", "apps/web/**", "packages/**", "pnpm-lock.yaml", ".github/workflows/iphone.yml"]
+    paths:
+      [
+        "apps/iphone/**",
+        "apps/web/**",
+        "packages/**",
+        "pnpm-lock.yaml",
+        ".github/workflows/iphone.yml",
+      ]
 
 permissions:
   contents: read
