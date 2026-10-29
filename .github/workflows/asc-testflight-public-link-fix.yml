@@ -112,7 +112,8 @@ jobs:
           review_attrs = {
               "contactFirstName": "Matthew",
               "contactLastName": "Looney",
-              "contactPhone": "+1-555-0100",
+              # Caller-provided contact phone (203-907-6688).
+              "contactPhone": "+12039076688",
               "contactEmail": target,
               "demoAccountRequired": False,
               "notes": (
@@ -122,10 +123,14 @@ jobs:
           }
           if detail.get("data"):
               did = detail["data"]["id"]
-              request("PATCH", f"/v1/betaAppReviewDetails/{did}", body={
+              patched_detail = request("PATCH", f"/v1/betaAppReviewDetails/{did}", body={
                   "data": {"type": "betaAppReviewDetails", "id": did, "attributes": review_attrs}
-              })
-              print(f"patched betaAppReviewDetail id={did}")
+              }, ok_statuses=(409, 422))
+              if patched_detail.get("data"):
+                  phone = patched_detail["data"]["attributes"].get("contactPhone")
+                  print(f"patched betaAppReviewDetail id={did} contactPhone={phone}")
+              else:
+                  print("betaAppReviewDetail patch result:", json.dumps(patched_detail, indent=2)[:800])
           else:
               created = request("POST", "/v1/betaAppReviewDetails", body={
                   "data": {
@@ -133,8 +138,12 @@ jobs:
                       "attributes": review_attrs,
                       "relationships": {"app": {"data": {"type": "apps", "id": app_id}}},
                   }
-              })
-              print(f"created betaAppReviewDetail id={created['data']['id']}")
+              }, ok_statuses=(409, 422))
+              if created.get("data"):
+                  phone = created["data"]["attributes"].get("contactPhone")
+                  print(f"created betaAppReviewDetail id={created['data']['id']} contactPhone={phone}")
+              else:
+                  print("betaAppReviewDetail create result:", json.dumps(created, indent=2)[:800])
 
           # 3) Beta App Description localization (the 422 we hit earlier)
           print("Ensuring betaAppLocalizations description...")
@@ -225,24 +234,28 @@ jobs:
               da = detail2["data"]["attributes"]
               print(f"externalBuildState={da.get('externalBuildState')} internalBuildState={da.get('internalBuildState')}")
 
-          # 5) Force Internal invite email
-          print(f"Resetting Internal invite for {target}...")
+          # 5) Fresh Internal invite WITHOUT deleting the tester (delete revokes old tokens).
+          print(f"Ensuring Internal invite for {target}...")
           found = request("GET", "/v1/betaTesters", params={"filter[email]": target, "limit": "10"}).get("data", [])
-          for t in found:
-              print(f"deleting tester id={t['id']} state={t['attributes'].get('state')}")
-              request("DELETE", f"/v1/betaTesters/{t['id']}", ok_statuses=(404,))
-              time.sleep(1)
-          created = request("POST", "/v1/betaTesters", body={
-              "data": {
-                  "type": "betaTesters",
-                  "attributes": {"email": target, "firstName": "Matthew", "lastName": "Looney"},
-                  "relationships": {
-                      "betaGroups": {"data": [{"type": "betaGroups", "id": internal_id}]},
-                  },
-              }
-          })
-          tester_id = created["data"]["id"]
-          print(f"created_internal_tester id={tester_id} state={created['data']['attributes'].get('state')}")
+          tester_id = found[0]["id"] if found else None
+          if tester_id:
+              print(f"reusing_tester id={tester_id} state={found[0]['attributes'].get('state')}")
+              request("POST", f"/v1/betaGroups/{internal_id}/relationships/betaTesters", body={
+                  "data": [{"type": "betaTesters", "id": tester_id}]
+              }, ok_statuses=(409, 422))
+          else:
+              created = request("POST", "/v1/betaTesters", body={
+                  "data": {
+                      "type": "betaTesters",
+                      "attributes": {"email": target, "firstName": "Matthew", "lastName": "Looney"},
+                      "relationships": {
+                          "betaGroups": {"data": [{"type": "betaGroups", "id": internal_id}]},
+                      },
+                  }
+              })
+              tester_id = created["data"]["id"]
+              print(f"created_internal_tester id={tester_id} state={created['data']['attributes'].get('state')}")
+
           inv = request("POST", "/v1/betaTesterInvitations", body={
               "data": {
                   "type": "betaTesterInvitations",
@@ -254,19 +267,25 @@ jobs:
           }, ok_statuses=(409,))
           print("invite_post:", json.dumps(inv, indent=2)[:800])
 
-          # Confirm tester state after invite
           time.sleep(2)
           testers = request("GET", f"/v1/betaGroups/{internal_id}/betaTesters", params={"limit": "50"}).get("data", [])
           me = next((t for t in testers if (t["attributes"].get("email") or "").lower() == target), None)
           if me:
               print(f"INTERNAL_TESTER email={me['attributes'].get('email')} state={me['attributes'].get('state')} id={me['id']}")
           else:
-              print("INTERNAL_TESTER missing from group after recreate")
+              print("INTERNAL_TESTER missing from group")
 
+          ibuilds = request("GET", f"/v1/betaGroups/{internal_id}/builds", params={"limit": "10"}).get("data", [])
+          print("internal_group_builds:", [b["attributes"].get("version") for b in ibuilds])
           pub_testers = request("GET", f"/v1/betaGroups/{public_id}/betaTesters", params={"limit": "50"}).get("data", [])
           public = request("GET", f"/v1/betaGroups/{public_id}")["data"]["attributes"]
+          review_phone = request("GET", f"/v1/apps/{app_id}/betaAppReviewDetail", ok_statuses=(404,))
+          phone_saved = None
+          if review_phone.get("data"):
+              phone_saved = review_phone["data"]["attributes"].get("contactPhone")
 
           print("\n=== SUMMARY ===")
+          print(f"contact_phone_saved={phone_saved}")
           print(f"public_link={public.get('publicLink')}")
           print(f"redeem_code={public.get('publicLinkId')}")
           print(f"link_active={public.get('publicLinkEnabled')}")
@@ -283,6 +302,6 @@ jobs:
           if me:
               print(f"email_invite_state={me['attributes'].get('state')}")
               print(f"email_invite_to={me['attributes'].get('email')}")
-          print("NOTE: External public link install works only after Beta App Review is APPROVED.")
-          print("Internal email: check Gmail All Mail for no_reply@email.apple.com TestFlight.")
+          print("WORKING_METHOD=Ignore revoked banners. Use NEW Internal email from Apple, or wait for Beta Review before public link.")
+          print("PUBLIC_LINK_NOTE=External install needs APPROVED Beta App Review; Internal works now if invite is accepted.")
           PY
