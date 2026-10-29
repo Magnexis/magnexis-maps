@@ -1,7 +1,7 @@
 name: ASC TestFlight reinvite
 
-# Removes matthewlooney5@gmail.com from the Internal group, waits, re-adds, and
-# POSTs a fresh betaTesterInvitation. Does not print secrets.
+# Deletes the stuck INVITED tester, recreates them on the Internal group, and
+# creates/enables an External public-link group so a redeem URL/code exists.
 
 on:
   workflow_dispatch:
@@ -12,7 +12,7 @@ permissions:
 jobs:
   reinvite:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
     environment: app-store
     env:
       ASC_API_KEY_ID: ${{ secrets.ASC_API_KEY_ID }}
@@ -20,7 +20,7 @@ jobs:
       ASC_API_KEY_P8: ${{ secrets.ASC_API_KEY_P8 }}
       TARGET_EMAIL: matthewlooney5@gmail.com
     steps:
-      - name: Force fresh Internal TestFlight invitation
+      - name: Reset Internal invite and enable public TestFlight link
         shell: bash
         run: |
           set -euo pipefail
@@ -40,7 +40,7 @@ jobs:
           target = os.environ["TARGET_EMAIL"].strip().lower()
           now = int(time.time())
           token = jwt.encode(
-              {"iss": issuer, "iat": now, "exp": now + 15 * 60, "aud": "appstoreconnect-v1"},
+              {"iss": issuer, "iat": now, "exp": now + 20 * 60, "aud": "appstoreconnect-v1"},
               p8,
               algorithm="ES256",
               headers={"kid": key_id, "typ": "JWT"},
@@ -48,7 +48,7 @@ jobs:
           if isinstance(token, bytes):
               token = token.decode()
 
-          def request(method, path, body=None, params=None):
+          def request(method, path, body=None, params=None, ok_statuses=()):
               url = "https://api.appstoreconnect.apple.com" + path
               if params:
                   url += "?" + urlencode(params)
@@ -64,6 +64,9 @@ jobs:
                       return json.loads(raw) if raw else {}
               except urllib.error.HTTPError as e:
                   err = e.read().decode("utf-8", "replace")
+                  if e.code in ok_statuses:
+                      print(f"(ignored HTTP {e.code} on {method} {path})")
+                      return {"errors": json.loads(err) if err.startswith("{") else err}
                   raise SystemExit(f"{method} {url} -> HTTP {e.code}\n{err}") from e
 
           apps = request("GET", "/v1/apps", params={"limit": "200"})["data"]
@@ -72,69 +75,121 @@ jobs:
           print(f"app={app['attributes']['name']} id={app_id}")
 
           groups = request("GET", "/v1/betaGroups", params={"filter[app]": app_id, "limit": "50"})["data"]
-          group = next((g for g in groups if g["attributes"].get("isInternalGroup")), None)
-          if not group:
+          internal = next((g for g in groups if g["attributes"].get("isInternalGroup")), None)
+          if not internal:
               raise SystemExit("No internal beta group found")
-          group_id = group["id"]
-          print(f"group={group['attributes']['name']} id={group_id}")
-
-          testers = request("GET", f"/v1/betaGroups/{group_id}/betaTesters", params={"limit": "50"})["data"]
-          tester = next((t for t in testers if (t["attributes"].get("email") or "").lower() == target), None)
-          if not tester:
-              # Search all testers for this app
-              all_t = request("GET", "/v1/betaTesters", params={"filter[email]": target, "limit": "10"})["data"]
-              tester = all_t[0] if all_t else None
-          if not tester:
-              raise SystemExit(f"No beta tester found for {target}")
-          tester_id = tester["id"]
-          print(f"tester email={tester['attributes'].get('email')} state={tester['attributes'].get('state')} id={tester_id}")
+          internal_id = internal["id"]
+          print(f"internal group={internal['attributes']['name']} id={internal_id}")
 
           builds = request("GET", "/v1/builds", params={"filter[app]": app_id, "limit": "5", "sort": "-uploadedDate"})["data"]
-          if not builds:
-              raise SystemExit("No builds")
           build = builds[0]
           build_id = build["id"]
-          print(f"latest buildNumber={build['attributes'].get('version')} processing={build['attributes'].get('processingState')} id={build_id}")
+          print(f"buildNumber={build['attributes'].get('version')} processing={build['attributes'].get('processingState')} id={build_id}")
 
-          print("Removing tester from internal group...")
-          request("DELETE", f"/v1/betaGroups/{group_id}/relationships/betaTesters", body={
-              "data": [{"type": "betaTesters", "id": tester_id}]
+          # --- Reset stuck Internal INVITED tester ---
+          found = request("GET", "/v1/betaTesters", params={"filter[email]": target, "limit": "10"}).get("data", [])
+          for t in found:
+              tid = t["id"]
+              print(f"deleting stuck tester id={tid} state={t['attributes'].get('state')}")
+              request("DELETE", f"/v1/betaTesters/{tid}", ok_statuses=(404,))
+              time.sleep(2)
+
+          print(f"creating fresh beta tester {target} on internal group...")
+          created = request("POST", "/v1/betaTesters", body={
+              "data": {
+                  "type": "betaTesters",
+                  "attributes": {
+                      "email": target,
+                      "firstName": "Matthew",
+                      "lastName": "Looney",
+                  },
+                  "relationships": {
+                      "betaGroups": {"data": [{"type": "betaGroups", "id": internal_id}]},
+                  },
+              }
           })
-          time.sleep(3)
+          tester_id = created["data"]["id"]
+          print(f"created tester id={tester_id} state={created['data']['attributes'].get('state')}")
 
-          print("Re-adding tester to internal group...")
-          request("POST", f"/v1/betaGroups/{group_id}/relationships/betaTesters", body={
-              "data": [{"type": "betaTesters", "id": tester_id}]
-          })
-          time.sleep(2)
+          print("posting betaTesterInvitations...")
+          inv = request("POST", "/v1/betaTesterInvitations", body={
+              "data": {
+                  "type": "betaTesterInvitations",
+                  "relationships": {
+                      "app": {"data": {"type": "apps", "id": app_id}},
+                      "betaTester": {"data": {"type": "betaTesters", "id": tester_id}},
+                  },
+              }
+          }, ok_statuses=(409,))
+          print("invite:", json.dumps(inv, indent=2)[:1200])
 
-          print("Ensuring build is on the group...")
-          request("POST", f"/v1/betaGroups/{group_id}/relationships/builds", body={
-              "data": [{"type": "builds", "id": build_id}]
-          })
-          time.sleep(2)
-
-          print("Posting betaTesterInvitations (forces Apple email)...")
-          try:
-              inv = request("POST", "/v1/betaTesterInvitations", body={
+          # --- External public link (gives redeem URL/code; may need Beta Review) ---
+          external = next((g for g in groups if not g["attributes"].get("isInternalGroup") and g["attributes"].get("name") == "Public Link"), None)
+          if not external:
+              print("creating External group 'Public Link'...")
+              external = request("POST", "/v1/betaGroups", body={
                   "data": {
-                      "type": "betaTesterInvitations",
+                      "type": "betaGroups",
+                      "attributes": {
+                          "name": "Public Link",
+                          "isInternalGroup": False,
+                          "publicLinkEnabled": True,
+                          "publicLinkLimitEnabled": True,
+                          "publicLinkLimit": 100,
+                          "feedbackEnabled": True,
+                      },
                       "relationships": {
                           "app": {"data": {"type": "apps", "id": app_id}},
-                          "betaTester": {"data": {"type": "betaTesters", "id": tester_id}},
                       },
                   }
-              })
-              print("invitation response:", json.dumps(inv.get("data", {}).get("attributes", inv), indent=2)[:1000])
-          except SystemExit as e:
-              print(f"invitation POST note: {e}")
+              })["data"]
+          else:
+              print(f"external group exists id={external['id']}")
+              # enable public link if needed
+              if not external["attributes"].get("publicLinkEnabled"):
+                  external = request("PATCH", f"/v1/betaGroups/{external['id']}", body={
+                      "data": {
+                          "type": "betaGroups",
+                          "id": external["id"],
+                          "attributes": {
+                              "publicLinkEnabled": True,
+                              "publicLinkLimitEnabled": True,
+                              "publicLinkLimit": 100,
+                          },
+                      }
+                  })["data"]
 
-          testers2 = request("GET", f"/v1/betaGroups/{group_id}/betaTesters", params={"limit": "50"})["data"]
-          t2 = next((t for t in testers2 if (t["attributes"].get("email") or "").lower() == target), None)
-          if t2:
-              print(f"final tester state={t2['attributes'].get('state')} email={t2['attributes'].get('email')}")
-          gbuilds = request("GET", f"/v1/betaGroups/{group_id}/builds", params={"limit": "10"})["data"]
-          print("builds on group:", [b["attributes"].get("version") for b in gbuilds])
-          print("Done. Check Gmail All Mail for no_reply@email.apple.com within a few minutes.")
-          print("On iPhone: TestFlight must use the same Apple ID as", target)
+          ext_id = external["id"]
+          # refresh attributes for publicLink
+          external = request("GET", f"/v1/betaGroups/{ext_id}")["data"]
+          atr = external["attributes"]
+          print(f"PUBLIC_LINK_ENABLED={atr.get('publicLinkEnabled')}")
+          print(f"PUBLIC_LINK={atr.get('publicLink')}")
+          print(f"PUBLIC_LINK_ID={atr.get('publicLinkId')}")
+
+          # try attach build to external group (may 422 until beta review)
+          print("attaching build to Public Link group (may require Beta App Review)...")
+          request("POST", f"/v1/betaGroups/{ext_id}/relationships/builds", body={
+              "data": [{"type": "builds", "id": build_id}]
+          }, ok_statuses=(409, 422))
+
+          # submit for beta review if needed
+          print("checking/submitting Beta App Review...")
+          request("POST", "/v1/betaAppReviewSubmissions", body={
+              "data": {
+                  "type": "betaAppReviewSubmissions",
+                  "relationships": {
+                      "build": {"data": {"type": "builds", "id": build_id}},
+                  },
+              }
+          }, ok_statuses=(409, 422))
+
+          print("\n=== ACTION FOR YOU ===")
+          print(f"1) Gmail ({target}) -> All Mail / Spam, search: from:email.apple.com TestFlight")
+          if atr.get("publicLink"):
+              print(f"2) Or open this public redeem link on the iPhone: {atr.get('publicLink')}")
+              print(f"   Redeem code (if TestFlight asks): {atr.get('publicLinkId')}")
+          else:
+              print("2) Public link not active yet — after Beta Review finishes, re-run this workflow or enable Public Link in ASC External Testing.")
+          print("3) TestFlight on iPhone must be signed into", target)
           PY
