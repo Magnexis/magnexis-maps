@@ -1,13 +1,13 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "Magnexis Maps",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "identifier": "com.magnexis.maps",
   "build": {
-    "frontendDist": "../../web/out",
+    "frontendDist": "../../web/.next-web",
     "devUrl": "http://localhost:3000",
     "beforeDevCommand": "pnpm --filter @magnexis/web dev",
-    "beforeBuildCommand": "pnpm --filter @magnexis/web build"
+    "beforeBuildCommand": "node scripts/build-frontend.mjs"
   },
   "app": {
     "windows": [

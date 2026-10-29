@@ -22,4 +22,20 @@ pnpm --filter @magnexis/web dev
 pnpm --filter @magnexis/desktop dev
 ```
 
-Build targets: Windows, macOS, Linux. Icon assets live under `src-tauri/icons/` (add platform icons before release builds).
+## Version 1.0.0 release build
+
+The desktop build packages a static export of the shared Horizon interface; it does
+not download the web product at launch. Its frontend API still needs a configured,
+reachable HTTPS API endpoint to supply search, routing, places, and optional
+provider-backed features.
+
+On Windows, create installer artifacts with:
+
+```powershell
+pnpm --filter @magnexis/desktop build:windows
+```
+
+The unsigned NSIS and MSI artifacts appear under
+`apps/desktop/src-tauri/target/release/bundle/`. Run and scan each installer before
+publishing it. Windows SmartScreen/reputation and code-signing are separate release
+concerns; this project does not claim either is configured.

@@ -1,6 +1,6 @@
 [package]
 name = "magnexis-maps-desktop"
-version = "0.1.0"
+version = "1.0.0"
 description = "Magnexis Maps desktop shell (Tauri 2)"
 authors = ["Magnexis LLC"]
 edition = "2021"
