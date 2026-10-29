@@ -56,9 +56,10 @@ security unlock-keychain -p "$PASSWORD" "$KEYCHAIN"
 security import "$CERTIFICATE" -P "$IOS_CERTIFICATE_PASSWORD" -A -t cert -f pkcs12 -k "$KEYCHAIN" >/dev/null
 security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$PASSWORD" "$KEYCHAIN" >/dev/null
 security list-keychains -d user -s "$KEYCHAIN" "$HOME/Library/Keychains/login.keychain-db"
-# Confirm a Distribution identity exists without printing private key material
-security find-identity -v -p codesigning "$KEYCHAIN" | grep -q 'Apple Distribution' \
-  || { echo 'P12 must contain an Apple Distribution certificate and private key'; exit 1; }
+# Confirm a Distribution identity exists without printing private key material.
+# Apple still issues some iOS App Store certs as "iPhone Distribution: …".
+security find-identity -v -p codesigning "$KEYCHAIN" | grep -Eq 'Apple Distribution|iPhone Distribution' \
+  || { echo 'P12 must contain an Apple/iPhone Distribution certificate and private key'; exit 1; }
 mkdir -p "$API_FOLDER"
 # altool looks for AuthKey_<KEY_ID>.p8 under ~/.appstoreconnect/private_keys
 printf '%s' "$ASC_API_KEY_P8" > "$API_FOLDER/AuthKey_$ASC_API_KEY_ID.p8"
