@@ -1,0 +1,132 @@
+name: ASC TestFlight diagnose
+
+# Prints App Store Connect TestFlight state (no secrets). Manual only.
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: app-store
+    env:
+      ASC_API_KEY_ID: ${{ secrets.ASC_API_KEY_ID }}
+      ASC_API_ISSUER_ID: ${{ secrets.ASC_API_ISSUER_ID }}
+      ASC_API_KEY_P8: ${{ secrets.ASC_API_KEY_P8 }}
+    steps:
+      - name: Query App Store Connect for Magnexis Maps TestFlight state
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import base64, json, os, time, urllib.request
+          try:
+              import jwt
+          except ImportError:
+              import subprocess, sys
+              subprocess.check_call([sys.executable, "-m", "pip", "install", "-q", "PyJWT", "cryptography"])
+              import jwt
+
+          key_id = os.environ["ASC_API_KEY_ID"].strip()
+          issuer = os.environ["ASC_API_ISSUER_ID"].strip()
+          p8 = os.environ["ASC_API_KEY_P8"].replace("\\n", "\n").strip()
+          if "BEGIN PRIVATE KEY" not in p8:
+              raise SystemExit("ASC_API_KEY_P8 does not look like a PEM private key")
+
+          now = int(time.time())
+          token = jwt.encode(
+              {"iss": issuer, "iat": now, "exp": now + 15 * 60, "aud": "appstoreconnect-v1"},
+              p8,
+              algorithm="ES256",
+              headers={"kid": key_id, "typ": "JWT"},
+          )
+          if isinstance(token, bytes):
+              token = token.decode()
+
+          def get(path, params=None):
+              url = "https://api.appstoreconnect.apple.com" + path
+              if params:
+                  url += "?" + "&".join(f"{k}={urllib.request.quote(str(v))}" for k, v in params.items())
+              req = urllib.request.Request(url, headers={"Authorization": f"Bearer {token}", "Accept": "application/json"})
+              with urllib.request.urlopen(req, timeout=60) as resp:
+                  return json.load(resp)
+
+          print("=== Apps (bundleId contains magnexis) ===")
+          apps = get("/v1/apps", {"limit": "200"}).get("data", [])
+          maps = [a for a in apps if "magnexis" in (a.get("attributes", {}).get("bundleId") or "").lower()
+                  or "magnexis" in (a.get("attributes", {}).get("name") or "").lower()]
+          if not maps:
+              print("No Magnexis app found. All apps:")
+              for a in apps:
+                  atr = a["attributes"]
+                  print(f"  - {atr.get('name')} | {atr.get('bundleId')} | id={a['id']}")
+              raise SystemExit("Create/select the App Store Connect app for com.magnexis.maps")
+          for a in maps:
+              atr = a["attributes"]
+              print(f"APP: {atr.get('name')} | {atr.get('bundleId')} | id={a['id']}")
+          app_id = maps[0]["id"]
+
+          print("\n=== Recent builds ===")
+          builds = get(f"/v1/apps/{app_id}/builds", {"limit": "10", "sort": "-uploadedDate", "include": "preReleaseVersion"}).get("data", [])
+          included = get(f"/v1/apps/{app_id}/builds", {"limit": "10", "sort": "-uploadedDate", "include": "preReleaseVersion"}).get("included", [])
+          # re-fetch once with include properly
+          builds_resp = get(f"/v1/apps/{app_id}/builds", {"limit": "10", "sort": "-uploadedDate", "include": "preReleaseVersion"})
+          builds = builds_resp.get("data", [])
+          by_id = {x["id"]: x for x in builds_resp.get("included", [])}
+          if not builds:
+              print("No builds returned for this app.")
+          for b in builds:
+              atr = b["attributes"]
+              ver_rel = (b.get("relationships") or {}).get("preReleaseVersion", {}).get("data") or {}
+              ver = by_id.get(ver_rel.get("id"), {}).get("attributes", {}).get("version", "?")
+              print(
+                  f"BUILD {ver} ({atr.get('version')}) | processing={atr.get('processingState')} "
+                  f"| expired={atr.get('expired')} | usesNonExemptEncryption={atr.get('usesNonExemptEncryption')} "
+                  f"| id={b['id']}"
+              )
+
+          print("\n=== Beta groups ===")
+          groups = get(f"/v1/apps/{app_id}/betaGroups", {"limit": "50", "include": "betaTesters"}).get("data", [])
+          groups_resp = get(f"/v1/apps/{app_id}/betaGroups", {"limit": "50"})
+          groups = groups_resp.get("data", [])
+          if not groups:
+              print("No beta groups. Create an Internal Testing group and add yourself + the build.")
+          for g in groups:
+              atr = g["attributes"]
+              print(
+                  f"GROUP: {atr.get('name')} | internal={atr.get('isInternalGroup')} "
+                  f"| publicLinkEnabled={atr.get('publicLinkEnabled')} | publicLink={atr.get('publicLink')} "
+                  f"| id={g['id']}"
+              )
+              # testers in group
+              try:
+                  testers = get(f"/v1/betaGroups/{g['id']}/betaTesters", {"limit": "50"}).get("data", [])
+              except Exception as e:
+                  print(f"  (testers fetch failed: {e})")
+                  testers = []
+              if not testers:
+                  print("  testers: (none)")
+              for t in testers:
+                  ta = t["attributes"]
+                  print(f"  tester: {ta.get('email')} | {ta.get('firstName')} {ta.get('lastName')} | state={ta.get('state')} | id={t['id']}")
+              # builds in group
+              try:
+                  gbuilds = get(f"/v1/betaGroups/{g['id']}/builds", {"limit": "10"}).get("data", [])
+              except Exception as e:
+                  print(f"  (builds fetch failed: {e})")
+                  gbuilds = []
+              if not gbuilds:
+                  print("  builds on group: (none)  << assign 1.4.0 (3) to this group")
+              for b in gbuilds:
+                  ba = b["attributes"]
+                  print(f"  build on group: buildNumber={ba.get('version')} processing={ba.get('processingState')} id={b['id']}")
+
+          print("\n=== Done ===")
+          print("If a group has you as tester but builds on group is none: add the build to the group.")
+          print("If build processing is not VALID: wait or fix Missing Compliance on the build.")
+          print("Internal Testing does not use an invitation CODE; open TestFlight signed into the tester Apple ID, or click Notify Testers on the build.")
+          PY
