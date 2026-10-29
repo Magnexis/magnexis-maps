@@ -1,125 +1,178 @@
 # Magnexis Maps
 
-Cross-platform geographic intelligence, mapping, and navigation by **Magnexis LLC**.
+**Beautiful maps. Intelligent navigation. Reliable geographic information.**
 
-Magnexis Maps is an open-development mapping platform built on MapLibre: interactive vector basemaps, PostGIS-backed places, search, community corrections with moderation, and provider-isolated routing/geocoding. It never invents routes, traffic, or place data.
+Magnexis Maps is a cross-platform geographic intelligence product from **Magnexis LLC**. It combines interactive vector mapping, place search, multi-stop directions, turn-by-turn voice guidance, optional live layers, and moderated community corrections—delivered through a shared Horizon interface on the web, Windows desktop, and iPhone.
 
-> Beautiful maps. Intelligent navigation. Reliable geographic information.
+The platform is built so that **maps and routes reflect real geographic data and licensed providers**. When a routing, geocoding, or enrichment service is unavailable, Magnexis Maps reports that clearly instead of fabricating geometry, traffic, or places.
 
-![Magnexis Maps — Standard overview](./docs/demo/frames/e2e-standard.png)
+<br />
 
-**Version:** 1.4.0 (Chromatic) · Official mark: [`assets/branding/magnexis-maps-logo.png`](./assets/branding/magnexis-maps-logo.png)
+<p align="center">
+  <img src="./docs/demo/frames/e2e-standard.png" alt="Magnexis Maps — Standard map overview" width="860" />
+</p>
 
-**Website:** [magnexis-maps.netlify.app](https://magnexis-maps.netlify.app/) · [Privacy policy](https://magnexis-maps.netlify.app/privacy/) · [Support](https://magnexis-maps.netlify.app/support/) · [API health](https://magnexis-maps.netlify.app/api/v1/health)
+<p align="center">
+  <a href="https://magnexis-maps.netlify.app/"><strong>Live product</strong></a>
+  ·
+  <a href="https://magnexis-maps.netlify.app/privacy/">Privacy</a>
+  ·
+  <a href="https://magnexis-maps.netlify.app/support/">Support</a>
+  ·
+  <a href="https://magnexis-maps.netlify.app/api/v1/health">API status</a>
+  ·
+  <a href="https://github.com/Magnexis/magnexis-maps/releases">Releases</a>
+</p>
 
-The iPhone app packages this same web interface. [GitHub Actions build and signing instructions](docs/iphone-github-actions.md) describe hosted macOS validation and TestFlight upload.
+<p align="center">
+  <strong>Version</strong> 1.4.0 · Chromatic map system<br />
+  Official mark: <a href="./assets/branding/magnexis-maps-logo.png">assets/branding/magnexis-maps-logo.png</a>
+</p>
 
-## Demo
+---
 
-- **Product demo video:** [`docs/demo/magnexis-maps-demo.mp4`](./docs/demo/magnexis-maps-demo.mp4) — continuous live capture (MapLibre fly/ease, search, Standard → Night); regenerate with `docs/demo/record-demo.mjs`
-- **Stills:** [`docs/demo/frames/`](./docs/demo/frames/)
-- Local app: [http://localhost:3000](http://localhost:3000) after [Quick start](#quick-start)
-- LinkedIn draft: [`docs/demo/linkedin-post-draft.md`](./docs/demo/linkedin-post-draft.md)
+## Table of contents
 
-| Standard (light) | Magnexis Night |
+1. [Why Magnexis Maps](#why-magnexis-maps)
+2. [Product overview](#product-overview)
+3. [Platforms](#platforms)
+4. [Screenshots & demo](#screenshots--demo)
+5. [For developers](#for-developers)
+6. [HTTP API](#http-api)
+7. [Typed client packages](#typed-client-packages)
+8. [Architecture](#architecture)
+9. [Map styles & Chromatic](#map-styles--chromatic)
+10. [Data providers & attribution](#data-providers--attribution)
+11. [Security & privacy](#security--privacy)
+12. [Contributing](#contributing)
+13. [Roadmap & changelog](#roadmap--changelog)
+14. [Support](#support)
+15. [License](#license)
+
+---
+
+## Why Magnexis Maps
+
+Most mapping experiences hide a hard truth: search, routing, and imagery depend on providers, licenses, and operational health. Magnexis Maps is designed around that reality.
+
+| Principle | What it means in practice |
 | --- | --- |
-| ![Standard](./docs/demo/frames/e2e-standard.png) | ![Night](./docs/demo/frames/e2e-cold-reload-night.png) |
+| **Honest geography** | Routes, places, and traffic come from configured providers or stored geographic data—not invented client-side geometry. |
+| **One product, many shells** | Web, desktop, and iPhone share the same Horizon interface and API contracts. |
+| **Provider isolation** | Basemap tiles, routing, geocoding, and enrichment are adapted behind a stable API so clients stay simple. |
+| **Account control** | Users can register, sign in (email/password and optional OAuth), save places, and delete their accounts. |
+| **Community with moderation** | Map corrections are submitted as reports and reviewed before place data changes. |
+| **Open development** | Source, documentation, releases, and typed packages are published for transparency and integration. |
 
-## Features
+---
 
-- **Interactive MapLibre basemap** — OpenFreeMap liberty tiles with Magnexis **Chromatic** paints (Standard + Night)
-- **Road hierarchy & shields** — real OSM `ref` / network shields; Noto-only OpenFreeMap fonts (no blank-map glyph 404s)
-- **Place search** — PostGIS index plus optional TomTom / MapTiler geocoding when configured
-- **Directions** — TomTom or Valhalla/OSRM when providers are set; no fabricated geometry
-- **Magnexis VoiceNav** — browser TTS turn guidance when a real route exists
-- **Community Intelligence** — issue reports, moderation, versioned apply/revert
-- **Explore categories** — parks, transit, restaurants, fuel, EV, hospitals, and more
-- **Optional layers** — live traffic (TomTom proxy), Mapillary street view, Google Places photos / Street View Static (server-side keys)
-- **Admin dashboard** — moderation overview from live system state
-- **iPhone distribution target** — Capacitor packages the same web interface with native foreground GPS, sharing, speech, connectivity, and app links; Xcode project prepared, device/signing/submission gates remain
-- **Desktop (Tauri) & experimental mobile (Expo)** scaffolds
+## Product overview
 
-See [ROADMAP.md](./ROADMAP.md) for implemented vs planned status. Do not assume unlisted features exist.
+### Mapping
 
-## Stack
+- Interactive **MapLibre** vector basemap powered by OpenFreeMap (OpenStreetMap-derived tiles)
+- Magnexis **Chromatic** appearance: **Standard** (light) and **Night** (dark), with road hierarchy and route shields from real OSM `ref` / network data
+- Optional **terrain** and **satellite** styles when MapTiler is configured
+- Explore categories for parks, transit, restaurants, fuel, EV charging, hospitals, and more
 
-| Layer | Tech |
+### Search & places
+
+- Place search against a PostGIS index, with optional provider-backed geocoding
+- Nearby search, place detail, and saved places for signed-in users
+- Optional Google Places photos and Street View Static imagery via a server-side proxy (keys never exposed to the browser)
+
+### Directions & navigation
+
+- Multi-stop directions when a routing provider is configured (for example TomTom or self-hosted Valhalla)
+- Units-aware distances, route alternatives when the provider supplies them
+- **Magnexis VoiceNav** — spoken turn guidance when a real route and maneuvers exist
+- Shareable place and route links for the web and native shells
+
+### Community intelligence
+
+- Issue and correction reports from guests (rate-limited) and authenticated users
+- Moderator workflows to review, apply, and revert changes with versioned place updates
+- Admin overview of live system state
+
+### Accounts
+
+- Email and password registration / sign-in
+- Optional **Sign in with Google** and **Sign in with GitHub** when configured
+- Saved places and account deletion with explicit confirmation
+
+---
+
+## Platforms
+
+### Web
+
+The primary product experience runs in the browser.
+
+- **Production:** [https://magnexis-maps.netlify.app/](https://magnexis-maps.netlify.app/)
+- Responsive Horizon UI for phone, tablet, and desktop viewports
+- Privacy and support pages ship with the same site
+
+### Windows desktop
+
+Magnexis Maps Desktop packages the Horizon interface in a **Tauri 2** shell and talks to the production HTTPS API.
+
+| Item | Link |
 | --- | --- |
-| Web | Next.js, MapLibre GL, Magnexis Horizon UI |
-| API | Fastify, Zod, OpenAPI |
-| Data | PostgreSQL + PostGIS, Redis |
-| Monorepo | pnpm + Turborepo |
-| Styles | `@magnexis/map-styles` (Chromatic engine, OFM fonts, RouteShield, GeoSymbols) |
-| Deploy (web) | Netlify (`netlify.toml`) |
-| CI | GitLab CI (`.gitlab-ci.yml`) |
+| Latest release | [Desktop 1.0.0](https://github.com/Magnexis/magnexis-maps/releases/tag/desktop-v1.0.0) |
+| Installers | NSIS (`.exe`) and MSI attached to the release |
+| Notes | Unsigned installers; Windows SmartScreen may prompt on first launch |
 
-## Monorepo layout
+### iPhone
+
+The iPhone app packages the **same** web product with Capacitor, adding native foreground location, sharing, speech, connectivity, and app links. Distribution targets App Store Connect / TestFlight through the project’s documented release path.
+
+### Other clients
+
+- **Admin** — moderation dashboard for operators
+- **Expo** — experimental mobile scaffold for API-oriented prototyping
+
+---
+
+## Screenshots & demo
+
+| Standard | Night |
+| --- | --- |
+| ![Standard map](./docs/demo/frames/e2e-standard.png) | ![Night map](./docs/demo/frames/e2e-cold-reload-night.png) |
+
+- **Product demo video:** [`docs/demo/magnexis-maps-demo.mp4`](./docs/demo/magnexis-maps-demo.mp4)
+- **Still frames:** [`docs/demo/frames/`](./docs/demo/frames/)
+
+Try the live site first if you want to evaluate the product without installing a development environment.
+
+---
+
+## For developers
+
+This repository is a **pnpm + Turborepo monorepo** containing the web app, API, shared packages, desktop and iPhone shells, and infrastructure definitions.
+
+### Repository layout
 
 ```
-apps/web          Next.js + MapLibre UI
+apps/web          Next.js + MapLibre product UI (Horizon)
 apps/admin        Moderation dashboard
-apps/mobile       Expo Go client
-apps/iphone       Shared web UI packaged for iPhone with Capacitor
-apps/desktop      Tauri shell
-services/api      Fastify REST API (:4000)
-packages/*        shared, database, provider-adapters, map-styles, ui, navigation, …
-infrastructure/   Docker Compose (PostGIS, Redis, optional Valhalla), migrations
-docs/             Architecture, API, deployment, demo assets
-assets/branding/  Official logo & icons
+apps/iphone       Capacitor iPhone packaging of the shared UI
+apps/desktop      Tauri Windows / desktop shell
+apps/mobile       Experimental Expo client
+services/api      Fastify REST API
+packages/*        shared schemas, api-client, map-styles, navigation, database, …
+infrastructure/   Docker Compose, SQL migrations
+docs/             Architecture, API, deployment, and product documentation
+assets/branding/  Official logo and icons
 ```
 
-Details: [docs/architecture/ARCHITECTURE.md](./docs/architecture/ARCHITECTURE.md)
+### Prerequisites
 
-iPhone setup: [apps/iphone/README.md](./apps/iphone/README.md). App Store preparation and remaining blockers: [docs/iphone-app-store.md](./docs/iphone-app-store.md). Workflow comparison: [docs/google-maps-parity.md](./docs/google-maps-parity.md).
+- **Node.js** 20 or newer
+- **pnpm** 9+ (version pinned via `packageManager` in the root `package.json`)
+- **Docker Desktop** for PostgreSQL/PostGIS and Redis
+- Optional: Rust toolchain (desktop), Xcode (iPhone), provider API keys
 
-## Prerequisites
-
-- **Node.js** 20+
-- **pnpm** 9+ (`packageManager` pinned in root `package.json`)
-- **Docker Desktop** — Postgres/PostGIS + Redis
-- Optional: Rust (Tauri), Expo Go on device, Valhalla (`pnpm docker:routing`), TomTom / MapTiler / Mapillary / Google keys
-
-Postgres is published on host port **5433** by default (avoids clashes with local 5432).
-
-## Environment variables
-
-Copy [`.env.example`](./.env.example) → `.env`. **Never commit `.env` or API keys.**
-
-| Variable | Where | Purpose |
-| --- | --- | --- |
-| `DATABASE_URL` | API | PostGIS connection |
-| `REDIS_URL` | API | Cache / sessions |
-| `JWT_SECRET` | API | Auth sessions |
-| `NEXT_PUBLIC_API_URL` | Web | API base URL |
-| `NEXT_PUBLIC_MAP_STYLE_URL` | Web | Default style (OpenFreeMap liberty) |
-| `MAP_STYLE_STANDARD` / `MAP_STYLE_DARK` | API | Style resolution for clients |
-| `TOMTOM_API_KEY` | **API only** | Routing, search, traffic tile proxy — use `pnpm secrets:tomtom` |
-| `ROUTING_PROVIDER` / `GEOCODING_PROVIDER` | API | `tomtom`, `valhalla`, `osrm`, `maptiler`, … |
-| `VALHALLA_URL` | API | Local Valhalla after `pnpm docker:routing` |
-| `MAPTILER_KEY` / `NEXT_PUBLIC_MAPTILER_KEY` | API / Web | Terrain & satellite styles |
-| `NEXT_PUBLIC_MAPILLARY_ACCESS_TOKEN` | Web | Optional street-view coverage |
-| `GOOGLE_MAPS_API_KEY` | **API only** | Optional Places photos / Street View Static proxy — `pnpm secrets:google` |
-| `GOOGLE_OAUTH_CLIENT_ID` / `NEXT_PUBLIC_GOOGLE_OAUTH_CLIENT_ID` | API / Web | Sign in with Google (ID token verification) |
-
-Missing routing/geocoding credentials return clear `503 PROVIDER_UNAVAILABLE` responses — the API will not invent results.
-
-### GitHub Packages (API client)
-
-Install the typed client packages that match today’s API surface (search, routes, Google sign-in, account lifecycle):
-
-```bash
-# .npmrc
-@magnexis:registry=https://npm.pkg.github.com
-//npm.pkg.github.com/:_authToken=YOUR_GITHUB_TOKEN
-
-npm install @magnexis/shared@1.1.0 @magnexis/api-client@1.1.0
-```
-
-Publish is driven by `.github/workflows/publish-packages.yml` on `api-v*` tags (or manual dispatch). Desktop releases use `desktop-v*` tags; the Desktop release workflow builds Windows NSIS/MSI installers and attaches them to the GitHub Release.
-
-**Security:** keep commercial keys server-side. Prefer `TOMTOM_API_KEY` + traffic proxy over `NEXT_PUBLIC_TOMTOM_KEY`. Do not put production Google keys in `NEXT_PUBLIC_*`.
-
-## Quick start
+### Quick start (local)
 
 ```bash
 pnpm install
@@ -129,111 +182,206 @@ pnpm --filter @magnexis/shared --filter @magnexis/database --filter @magnexis/pr
 pnpm db:migrate
 pnpm db:seed
 
-# terminal A — API
+# Terminal A — API
 pnpm --filter @magnexis/api dev
 
-# terminal B — web
+# Terminal B — web
 pnpm --filter @magnexis/web dev
 ```
 
-| Service | URL |
+| Service | Default URL |
 | --- | --- |
 | Web | http://localhost:3000 |
 | API | http://localhost:4000 |
 | OpenAPI | http://localhost:4000/docs |
-| Admin | `pnpm --filter @magnexis/admin dev` → http://localhost:3001 |
+| Admin | http://localhost:3001 (`pnpm --filter @magnexis/admin dev`) |
 
-Dev admin after seed: `admin@magnexis.local` / `MagnexisAdmin1!` (local only — change in any shared environment).
+Postgres is published on host port **5433** by default to avoid conflicts with a local PostgreSQL on 5432.
 
-### Optional TomTom
+Configuration is documented in [`.env.example`](./.env.example). **Never commit real secrets or a populated `.env` file.**
 
-```bash
-pnpm secrets:tomtom   # interactive; writes TOMTOM_API_KEY to .env
-# Prefer: ROUTING_PROVIDER=tomtom  GEOCODING_PROVIDER=tomtom
-```
+Deeper guides:
 
-### Optional local Valhalla (CT extract)
+- [Architecture](./docs/architecture/ARCHITECTURE.md)
+- [Deployment](./docs/deployment/DEPLOYMENT.md)
+- [Netlify hosting notes](./docs/netlify-deployment.md)
+- [iPhone packaging](./apps/iphone/README.md)
+- [Desktop shell](./apps/desktop/README.md)
 
-```bash
-pnpm docker:routing
-# ROUTING_PROVIDER=valhalla
-# VALHALLA_URL=http://localhost:8002
-```
-
-## Architecture overview
-
-```
-Browser / Tauri / Expo
-        │
-        ▼
-   Fastify API (:4000)
-        │
-   ┌────┼────────────┐
-   ▼    ▼            ▼
-PostGIS Redis   Providers
-                (OpenFreeMap tiles, TomTom,
-                 Valhalla/OSRM, Mapillary, Google)
-```
-
-1. Geographic data lives in PostGIS with provenance.
-2. Provider adapters isolate tiles, routing, and geocoding.
-3. UI never invents route geometry or live traffic.
-4. Community corrections require moderation before place mutation.
-5. Chromatic paints restyle OpenFreeMap liberty for Standard and Night without switching to OFM dark (which omits shields/POIs).
-
-## Map styles & Chromatic
-
-- **Basemap:** OpenFreeMap [liberty](https://tiles.openfreemap.org/styles/liberty) (OpenMapTiles) — roads, labels, shields, POIs; no tile API key.
-- **Fonts:** OpenFreeMap glyph stacks use **Noto Sans only**. Composite Open Sans stacks 404 on OFM and previously caused MapLibre to hold whole tiles blank; fixed in `@magnexis/map-styles`.
-- **Chromatic:** `applyChromaticPaints` — Standard (cool pastel land, slate highways) and Night (dark land, gold highways).
-- **Terrain / satellite:** MapTiler outdoor-v4 / satellite-v4 when a MapTiler key is set; labels shared via the liberty pipeline.
-
-## Providers
-
-| Provider | Role | Notes |
-| --- | --- | --- |
-| **OpenFreeMap** | Vector basemap + fonts/sprites | Default; free OSM-derived tiles |
-| **OpenStreetMap** | Source data attribution | Required in production attribution |
-| **TomTom** | Routing, search, traffic tiles | Server-side key; optional |
-| **Valhalla / OSRM** | Self-hosted / demo routing | Valhalla via Docker profile |
-| **MapTiler** | Terrain, satellite, optional geocode | Key required |
-| **Mapillary** | Street-level imagery | Optional client token |
-| **Google Maps Platform** | Places photos, Street View Static | Optional; API proxy only |
-
-Attribution and license matrix: [DATA_SOURCES.md](./DATA_SOURCES.md)
-
-## Deploy
-
-- **Netlify (web):** [`netlify.toml`](./netlify.toml) builds `@magnexis/web`. Set `NEXT_PUBLIC_API_URL` in the Netlify UI.
-- **GitLab CI:** [`.gitlab-ci.yml`](./.gitlab-ci.yml) — install, test, typecheck, build.
-- **API:** deploy Fastify separately; point the frontend at it.
-
-More: [docs/deployment/DEPLOYMENT.md](./docs/deployment/DEPLOYMENT.md)
-
-## Tests
+### Tests
 
 ```bash
 pnpm --filter @magnexis/shared test
 pnpm --filter @magnexis/api test
+pnpm --filter @magnexis/api-client test
+pnpm --filter @magnexis/web test
 pnpm --filter @magnexis/map-styles test
 ```
 
+---
+
+## HTTP API
+
+The Magnexis Maps API is a versioned HTTPS JSON API (`/api/v1`) with OpenAPI documentation.
+
+| Environment | Base origin | Health |
+| --- | --- | --- |
+| Production | `https://magnexis-maps.netlify.app` | [/api/v1/health](https://magnexis-maps.netlify.app/api/v1/health) |
+| Local | `http://localhost:4000` | `/api/v1/health` · `/docs` |
+
+### Capability areas
+
+| Area | Examples |
+| --- | --- |
+| **System** | Health and dependency status |
+| **Places & search** | List, nearby, detail, full-text search |
+| **Geocoding** | Forward / reverse when a provider is configured |
+| **Routing** | Multi-stop routes with provider alternatives |
+| **Reports & incidents** | Community reports and public incident listings |
+| **Auth & account** | Register, login, Google / GitHub OAuth, profile, account deletion |
+| **Saved places** | Authenticated favorites |
+| **Map styles** | Style catalog and availability |
+| **Admin** | Moderation queue and overview (authorized roles) |
+
+Full reference: [docs/api/API.md](./docs/api/API.md)  
+Account deletion contract: [docs/account-deletion.md](./docs/account-deletion.md)
+
+When a required provider is not configured, endpoints respond with structured errors such as `503 PROVIDER_UNAVAILABLE` rather than synthetic results.
+
+---
+
+## Typed client packages
+
+Integrators can consume the same contracts used by the Magnexis clients via **GitHub Packages**:
+
+| Package | Purpose |
+| --- | --- |
+| [`@magnexis/shared`](https://github.com/Magnexis/magnexis-maps/pkgs/npm/shared) | Zod schemas and shared TypeScript types |
+| [`@magnexis/api-client`](https://github.com/Magnexis/magnexis-maps/pkgs/npm/api-client) | Typed HTTP client for `/api/v1` |
+
+```bash
+# .npmrc
+@magnexis:registry=https://npm.pkg.github.com
+//npm.pkg.github.com/:_authToken=YOUR_GITHUB_TOKEN
+
+npm install @magnexis/shared@1.1.0 @magnexis/api-client@1.1.0
+```
+
+Current published line includes search, routing, Google and GitHub sign-in helpers, saved places, and account deletion.
+
+---
+
+## Architecture
+
+```
+  Web · Desktop · iPhone
+            │
+            ▼
+     Magnexis Maps API
+            │
+   ┌────────┼────────────────┐
+   ▼        ▼                ▼
+PostGIS   Redis        Provider adapters
+(places)  (cache)      (tiles, routing,
+                        geocoding, imagery)
+```
+
+1. **Clients** render maps and UX; they call a single API origin.
+2. **PostGIS** stores places and moderated geographic state with provenance.
+3. **Provider adapters** isolate third-party routing, geocoding, and enrichment.
+4. **Chromatic** restyles the OpenFreeMap liberty basemap for Standard and Night without inventing road geometry.
+
+See [docs/architecture/ARCHITECTURE.md](./docs/architecture/ARCHITECTURE.md) for component boundaries and deployment topology.
+
+---
+
+## Map styles & Chromatic
+
+| Layer | Description |
+| --- | --- |
+| **Basemap** | OpenFreeMap [liberty](https://tiles.openfreemap.org/styles/liberty) (OpenMapTiles schema)—roads, labels, shields, POIs |
+| **Fonts** | Noto Sans glyph stacks for reliable label rendering |
+| **Chromatic Standard** | Cool pastel land and slate highway hierarchy |
+| **Chromatic Night** | Dark land with high-visibility highway treatment |
+| **Terrain / satellite** | MapTiler outdoor and satellite styles when keyed |
+
+Implementation lives in `@magnexis/map-styles` (paint engine, RouteShield, GeoSymbols).
+
+---
+
+## Data providers & attribution
+
+| Provider | Role |
+| --- | --- |
+| **OpenFreeMap / OpenStreetMap** | Default vector basemap and community geographic foundation |
+| **TomTom** | Optional routing, search, and traffic tile proxy |
+| **Valhalla / OSRM** | Optional self-hosted or demo routing |
+| **MapTiler** | Optional terrain, satellite, and geocoding |
+| **Mapillary** | Optional street-level imagery coverage |
+| **Google Maps Platform** | Optional Places photos and Street View Static (server proxy) |
+| **Google / GitHub OAuth** | Optional account sign-in |
+
+Production deployments must retain required attribution. License and source notes: [DATA_SOURCES.md](./DATA_SOURCES.md).
+
+Commercial API keys belong on the **server**. Prefer server-side proxies over shipping provider secrets in public client bundles.
+
+---
+
+## Security & privacy
+
+- Session authentication uses signed tokens; treat `JWT_SECRET` as a production secret.
+- Account deletion is an authenticated, confirmed operation; see [account deletion](./docs/account-deletion.md).
+- Privacy policy: [https://magnexis-maps.netlify.app/privacy/](https://magnexis-maps.netlify.app/privacy/)
+- Report security issues privately to Magnexis LLC. Do not open public issues that include secrets, certificates, or personal data.
+- Rotate any credential that appears in chat logs, screenshots, or version control history.
+
+---
+
 ## Contributing
 
-1. Fork or branch from `main`.
-2. Keep changes focused; prefer conventional commits (`feat`, `fix`, `chore`, `docs`, `refactor`, `test`).
-3. Do not commit secrets, `.env`, or provider keys.
-4. Run typecheck/tests for touched packages before opening a merge request.
-5. Update [ROADMAP.md](./ROADMAP.md) / [CHANGELOG.md](./CHANGELOG.md) when behavior changes.
+We welcome focused contributions that improve reliability, documentation, accessibility, and roadmap-aligned features.
 
-Issues and MRs on the GitLab project are welcome for bugs, docs, and scoped features aligned with the roadmap.
+1. Branch from `main` (or fork the repository).
+2. Prefer conventional commits: `feat`, `fix`, `docs`, `refactor`, `test`, `chore`.
+3. Do not commit secrets, certificates, `.env` files, or provider keys.
+4. Run typecheck and tests for packages you touch.
+5. Update [CHANGELOG.md](./CHANGELOG.md) and [ROADMAP.md](./ROADMAP.md) when user-visible behavior changes.
+6. Open a pull request with a clear summary and test notes.
 
-## Security
+---
 
-- Report sensitive issues privately to Magnexis LLC rather than opening a public issue with secrets.
-- Rotate any key that appears in chat, screenshots, or git history.
-- Local seed credentials are for development only.
+## Roadmap & changelog
+
+- **Feature status:** [ROADMAP.md](./ROADMAP.md)
+- **Release history:** [CHANGELOG.md](./CHANGELOG.md)
+- **GitHub Releases:** [github.com/Magnexis/magnexis-maps/releases](https://github.com/Magnexis/magnexis-maps/releases)
+
+Planned areas include broader offline packs, deeper mobile native mapping, business portal experiences, and continued navigation polish. Treat the roadmap as intent—not a guarantee of ship dates.
+
+---
+
+## Support
+
+| Channel | Link |
+| --- | --- |
+| Product support page | [https://magnexis-maps.netlify.app/support/](https://magnexis-maps.netlify.app/support/) |
+| Privacy | [https://magnexis-maps.netlify.app/privacy/](https://magnexis-maps.netlify.app/privacy/) |
+| API health | [https://magnexis-maps.netlify.app/api/v1/health](https://magnexis-maps.netlify.app/api/v1/health) |
+| Issues | GitHub Issues on this repository |
+
+For partnership or licensing questions, contact Magnexis LLC through the support page.
+
+---
 
 ## License
 
-Proprietary — Magnexis LLC. See [LICENSE](./LICENSE). Third-party datasets and fonts retain their own licenses ([DATA_SOURCES.md](./DATA_SOURCES.md)).
+**Proprietary — Magnexis LLC.** See [LICENSE](./LICENSE).
+
+Third-party map data, fonts, and provider content remain under their respective licenses. See [DATA_SOURCES.md](./DATA_SOURCES.md).
+
+---
+
+<p align="center">
+  <img src="./assets/branding/magnexis-maps-logo.png" alt="Magnexis Maps" width="120" /><br />
+  <sub>Magnexis Maps · Magnexis LLC</sub>
+</p>
