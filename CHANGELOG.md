@@ -9,7 +9,7 @@
 - Increased route-shield scale and label sizing for road readability; map credits and active-route status now keep separate bottom-right and bottom-left positions.
 
 ### iPhone submission hardening
-- Removed an unused Always-location purpose string. The target requests foreground location only.
+- Restored the required Always-location purpose string for Capacitor-linked native APIs while preserving the explicit foreground-only, no-background-tracking explanation.
 - Removed the legacy `armv7` required-device capability so the App Store can evaluate compatibility from the target settings rather than an obsolete architecture declaration.
 - Added a versioned App Store submission packet and a release gate checklist for the owner-managed App Store Connect steps.
 

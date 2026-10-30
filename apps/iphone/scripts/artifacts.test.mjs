@@ -19,7 +19,11 @@ test("iPhone configuration does not enable remote shell hosting or background tr
   assert.doesNotMatch(config, /server\s*:/);
   assert.doesNotMatch(plist, /NSAllowsArbitraryLoads|UIBackgroundModes/);
   assert.match(plist, /NSLocationWhenInUseUsageDescription/);
-  assert.doesNotMatch(plist, /NSLocationAlwaysAndWhenInUseUsageDescription/);
+  // Capacitor's native location dependency references this API even though the
+  // target does not enable background location. App Store validation requires
+  // a clear string whenever that linked API is present.
+  assert.match(plist, /NSLocationAlwaysAndWhenInUseUsageDescription/);
+  assert.match(plist, /does not track your location in the background/);
   assert.doesNotMatch(plist, /UIRequiredDeviceCapabilities/);
   assert.match(plist, /magnexis-maps/);
 });

@@ -17,6 +17,8 @@ This packet is the source of truth for the first App Store submission of the Cap
 
 The upload build number must be greater than every build already accepted by App Store Connect. The TestFlight workflow supplies the GitHub Actions run number as the build number; do not override it with a lower value.
 
+The bundled Capacitor location dependency causes App Store validation to require both foreground and Always-and-When-In-Use location purpose strings. The app has no background-location mode and the purpose strings explicitly state that it does not track location in the background.
+
 ## App Store listing copy
 
 ### Name
