@@ -2,12 +2,10 @@
  * Fetch high-quality navigation speech from the Magnexis API when configured
  * (OpenAI TTS or ElevenLabs). Returns null when cloud TTS is unavailable.
  */
+import { resolveApiBase } from "./api-base";
 
 function apiBase(): string {
-  return (process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000").replace(
-    /\/$/,
-    "",
-  );
+  return resolveApiBase();
 }
 
 let statusCache: { configured: boolean; at: number } | null = null;

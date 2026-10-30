@@ -9,6 +9,7 @@
  * 4. NEXT_PUBLIC_MAPBOX_TOKEN — Mapbox Traffic v1
  * 5. MapTiler traffic tileset when explicitly opted in
  */
+import { resolveApiBase } from "./api-base";
 
 export type TrafficSourceConfig =
   | {
@@ -86,10 +87,8 @@ export function resolveTrafficSource(): TrafficSourceConfig | null {
     .trim()
     .toLowerCase();
   const useTomTomProxy = proxyFlag === "1" || proxyFlag === "true";
-  const apiBase = (
-    process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000"
-  ).replace(/\/$/, "");
-  if (useTomTomProxy && apiBase) {
+  const apiBase = resolveApiBase();
+  if (useTomTomProxy) {
     return {
       kind: "vector-tiles",
       id: "mx-traffic",

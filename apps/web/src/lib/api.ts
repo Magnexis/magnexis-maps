@@ -1,9 +1,9 @@
 "use client";
 
 import { createApiClient } from "@magnexis/api-client";
+import { resolveApiBase } from "./api-base";
 
-const API_URL =
-  process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000";
+export const API_URL = resolveApiBase();
 
 export function getApiClient() {
   return createApiClient({
@@ -14,5 +14,3 @@ export function getApiClient() {
         : null,
   });
 }
-
-export { API_URL };

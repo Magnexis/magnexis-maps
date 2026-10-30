@@ -2,6 +2,7 @@
  * Client helpers for TomTom enrichment via the Magnexis API proxy.
  * The TomTom key stays on the API — never call TomTom from the browser with a secret.
  */
+import { resolveApiBase } from "./api-base";
 
 export type TomTomProviderStatus = {
   configured: boolean;
@@ -13,10 +14,7 @@ let cachedStatus: TomTomProviderStatus | null = null;
 let statusInflight: Promise<TomTomProviderStatus> | null = null;
 
 function apiBase(): string {
-  return (process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000").replace(
-    /\/$/,
-    "",
-  );
+  return resolveApiBase();
 }
 
 export function tomtomProxyAbsoluteUrl(pathOrUrl: string): string {

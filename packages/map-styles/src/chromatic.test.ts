@@ -10,6 +10,7 @@ import {
   promoteMapLabelLayers,
   promoteRouteShieldLayers,
   parseRouteRef,
+  routeShieldSvg,
   shieldFromFeatureProps,
   styleHasHighwayShields,
 } from "./route-shield.js";
@@ -145,6 +146,15 @@ describe("Magnexis RouteShield", () => {
     expect(parseRouteRef("I 91")?.network).toBe("us-interstate");
     expect(parseRouteRef("US 1")?.label).toBe("US 1");
     expect(parseRouteRef("CT 15")?.label).toBe("CT 15");
+    expect(parseRouteRef("County 16")?.network).toBe("us-county");
+  });
+
+  it("generates vector shield families without baking route numbers", () => {
+    expect(routeShieldSvg("us-interstate")).toContain("INTERSTATE");
+    expect(routeShieldSvg("us-highway")).toContain("viewBox=\"0 0 72 84\"");
+    expect(routeShieldSvg("us-state")).toContain("<path");
+    expect(routeShieldSvg("us-county")).toContain("COUNTY");
+    expect(routeShieldSvg("us-interstate")).not.toContain("I-95");
   });
 
   it("never invents a shield without a ref", () => {

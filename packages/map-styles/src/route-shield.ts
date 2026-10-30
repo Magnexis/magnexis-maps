@@ -9,6 +9,7 @@ export type RouteNetworkKind =
   | "us-interstate"
   | "us-highway"
   | "us-state"
+  | "us-county"
   | "national"
   | "regional"
   | "unknown";
@@ -27,6 +28,7 @@ const INTERSTATE_RE = /^(?:US:)?I(?:-|\s)?(\d+[A-Z]?)$/i;
 const US_HWY_RE = /^(?:US:)?US(?:-|\s)?(\d+[A-Z]?)$/i;
 const STATE_RE =
   /^(?:US:)?([A-Z]{2})(?:-|:|\s)?(?:SR|SH|Route|Hwy|Highway)?\s*(\d+[A-Z]?)$/i;
+const COUNTY_RE = /^(?:US:)?(?:[A-Z]{2}[:\s-])?(?:CR|County(?: Route)?)\s*(\d+[A-Z]?)$/i;
 
 /**
  * Normalize provider network strings (OpenMapTiles / Overture / Magnexis).
@@ -60,6 +62,9 @@ export function classifyNetwork(
     /^[A-Z]{2}[-\s:]/i.test(r)
   ) {
     return "us-state";
+  }
+  if (n.includes("county") || n === "us:county" || /^(?:CR|County)/i.test(r)) {
+    return "us-county";
   }
   if (n.includes("national") || n.startsWith("ca:") || n.startsWith("gb:")) {
     return "national";
@@ -122,6 +127,18 @@ export function parseRouteRef(
       number: num,
       label: `${st} ${num}`,
       iconId: "mx-shield-state",
+    };
+  }
+
+  m = first.match(COUNTY_RE);
+  if (m?.[1] || classifyNetwork(network, first) === "us-county") {
+    const num = (m?.[1] ?? first.replace(/^[A-Za-z:\s-]+/, "")).trim();
+    if (!num || !/\d/.test(num)) return null;
+    return {
+      network: "us-county",
+      number: num.toUpperCase(),
+      label: `County ${num.toUpperCase()}`,
+      iconId: "mx-shield-county",
     };
   }
 
@@ -190,6 +207,86 @@ const SHIELD_TEXT_SIZE: unknown[] = [
   14,
 ];
 
+/**
+ * Clean-room vector plates derived from the MUTCD route-sign families. These
+ * intentionally contain only the network treatment; MapLibre draws the real
+ * route reference as live text above the plate. That keeps the source data
+ * authoritative and prevents baked, invented route numbers.
+ *
+ * State and county route designs vary by jurisdiction. Their neutral plates
+ * preserve the nationally recognised contrast treatment without pretending to
+ * be a particular state or county's official mark.
+ */
+export function routeShieldSvg(network: RouteNetworkKind): string {
+  const frame =
+    'xmlns="http://www.w3.org/2000/svg" viewBox="0 0 72 84" width="144" height="168"';
+  switch (network) {
+    case "us-interstate":
+      return `<svg ${frame}><path fill="#fff" d="M10 7h52v17c0 20-6 36-26 53C16 60 10 44 10 24Z"/><path fill="#b31942" d="M13 10h46v13H13Z"/><path fill="#064b93" d="M13 26h46c-1 16-6 30-23 45C19 56 14 42 13 26Z"/><path fill="none" stroke="#fff" stroke-width="3" d="M11.5 8.5h49v15.5c0 20-6.2 35.7-24.5 51C17.7 59.7 11.5 44 11.5 24Z"/><path stroke="#fff" stroke-width="1.8" d="M14 24.7h44"/><text x="36" y="20.5" fill="#fff" text-anchor="middle" font-family="Arial,sans-serif" font-size="6.2" font-weight="700" letter-spacing=".45">INTERSTATE</text></svg>`;
+    case "us-highway":
+      return `<svg ${frame}><path fill="#fff" stroke="#151515" stroke-width="3" d="M14 8h12l10 6 10-6h12v17c0 5-3 9-7 12 1 15-5 27-15 38C26 64 20 52 21 37c-4-3-7-7-7-12Z"/><path fill="none" stroke="#151515" stroke-width="1.4" d="M17 11h10l9 5 9-5h10v13c0 4-2 7-6 10 1 14-4 24-13 34-9-10-14-20-13-34-4-3-6-6-6-10Z"/></svg>`;
+    case "us-county":
+      return `<svg ${frame}><path fill="#075a9c" stroke="#f7ca3e" stroke-width="4" d="M36 5 66 25 55 77H17L6 25Z"/><path fill="none" stroke="#fff" stroke-opacity=".75" stroke-width="1.2" d="M36 10 61 27 51 72H21L11 27Z"/><text x="36" y="22" fill="#f7ca3e" text-anchor="middle" font-family="Arial,sans-serif" font-size="5.3" font-weight="700">COUNTY</text></svg>`;
+    case "us-state":
+      return `<svg ${frame}><path fill="#fff" stroke="#151515" stroke-width="3" d="M13 8h46l5 10-5 10 5 10-5 10 5 10-5 10H13l-5-10 5-10-5-10 5-10-5-10Z"/><path fill="none" stroke="#151515" stroke-width="1.3" d="M16 12h40l4 6-4 10 4 10-4 10 4 10-4 6H16l-4-6 4-10-4-10 4-10-4-10Z"/></svg>`;
+    default:
+      return `<svg ${frame}><rect x="7" y="12" width="58" height="60" rx="12" fill="#172033" stroke="#fff" stroke-width="3"/><rect x="12" y="17" width="48" height="50" rx="8" fill="none" stroke="#b9c4d1" stroke-width="1.2"/></svg>`;
+  }
+}
+
+function routeShieldDataUri(network: RouteNetworkKind): string {
+  return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(routeShieldSvg(network))}`;
+}
+
+/**
+ * Register HiDPI rasterisations of our SVG definitions with MapLibre. The
+ * source remains math-defined SVG; the 2× image only satisfies MapLibre's
+ * dynamic-image API and stays crisp on phone/desktop displays.
+ */
+export async function registerRouteShieldImages(
+  map: RouteShieldMapLike,
+): Promise<string[]> {
+  type ShieldImage = {
+    src: string;
+    decoding?: string;
+    decode: () => Promise<void>;
+  };
+  type ShieldImageConstructor = new () => ShieldImage;
+  const imageConstructor = (
+    globalThis as unknown as { Image?: ShieldImageConstructor }
+  ).Image;
+  if (!imageConstructor || !map.addImage) {
+    return [];
+  }
+
+  const plates: Array<[RouteNetworkKind, string]> = [
+    ["us-interstate", "mx-shield-interstate"],
+    ["us-highway", "mx-shield-us"],
+    ["us-state", "mx-shield-state"],
+    ["us-county", "mx-shield-county"],
+    ["regional", "mx-shield-generic"],
+  ];
+  const added: string[] = [];
+
+  await Promise.all(
+    plates.map(async ([network, id]) => {
+      if (map.hasImage?.(id)) return;
+      const image = new imageConstructor();
+      image.decoding = "async";
+      image.src = routeShieldDataUri(network);
+      try {
+        await image.decode();
+        if (map.hasImage?.(id)) return;
+        map.addImage?.(id, image, { pixelRatio: 2 });
+        added.push(id);
+      } catch {
+        // A map can be removed during a style reload; its sprite is optional.
+      }
+    }),
+  );
+  return added;
+}
+
 /** MapLibre layout/paint hints for highway shield symbol layers */
 export const ROUTE_SHIELD_LAYER_HINTS = {
   layout: {
@@ -202,6 +299,8 @@ export const ROUTE_SHIELD_LAYER_HINTS = {
       "mx-shield-us",
       "us-state",
       "mx-shield-state",
+      "us-county",
+      "mx-shield-county",
       "mx-shield-generic",
     ],
     "icon-size": SHIELD_ICON_SIZE,
@@ -235,6 +334,13 @@ export type RouteShieldMapLike = {
   /** Loose signature so MapLibre `Map` is assignable (addLayer param types vary). */
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   addLayer?: (layer: any, beforeId?: string) => unknown;
+  /** MapLibre dynamic image support for generated vector shields. */
+  hasImage?: (id: string) => boolean;
+  addImage?: (
+    id: string,
+    image: unknown,
+    options?: { pixelRatio?: number },
+  ) => void;
   /** Move a layer before `beforeId`, or to the top when omitted. */
   moveLayer?: (id: string, beforeId?: string) => unknown;
   setPaintProperty: (id: string, name: string, value: unknown) => void;
@@ -444,6 +550,10 @@ export function ensureRouteShieldLayers(map: RouteShieldMapLike): string[] {
   const source = resolveOpenMapTilesSourceId(map);
   if (!source || (map.getSource && !map.getSource(source))) return [];
 
+  // Fire-and-forget is intentional: MapLibre accepts icon references before
+  // their images arrive, then paints them as soon as registration completes.
+  void registerRouteShieldImages(map);
+
   const added: string[] = [];
   const lineGeom: unknown[] = [
     "match",
@@ -467,12 +577,7 @@ export function ensureRouteShieldLayers(map: RouteShieldMapLike): string[] {
         ["==", ["get", "network"], "us-interstate"],
       ],
       layout: {
-        "icon-image": [
-          "concat",
-          ["get", "network"],
-          "_",
-          ["get", "ref_length"],
-        ],
+        "icon-image": "mx-shield-interstate",
         "icon-optional": false,
         "icon-rotation-alignment": "viewport",
         "icon-size": SHIELD_ICON_SIZE,
@@ -505,14 +610,25 @@ export function ensureRouteShieldLayers(map: RouteShieldMapLike): string[] {
         "all",
         ["<=", ["get", "ref_length"], 6],
         lineGeom,
-        ["match", ["get", "network"], ["us-highway", "us-state"], true, false],
+        [
+          "match",
+          ["get", "network"],
+          ["us-highway", "us-state", "us-county"],
+          true,
+          false,
+        ],
       ],
       layout: {
         "icon-image": [
-          "concat",
+          "match",
           ["get", "network"],
-          "_",
-          ["get", "ref_length"],
+          "us-highway",
+          "mx-shield-us",
+          "us-state",
+          "mx-shield-state",
+          "us-county",
+          "mx-shield-county",
+          "mx-shield-generic",
         ],
         "icon-optional": false,
         "icon-rotation-alignment": "viewport",
@@ -549,14 +665,14 @@ export function ensureRouteShieldLayers(map: RouteShieldMapLike): string[] {
         [
           "match",
           ["get", "network"],
-          ["us-highway", "us-interstate", "us-state"],
+          ["us-highway", "us-interstate", "us-state", "us-county"],
           false,
           true,
         ],
         ["has", "ref"],
       ],
       layout: {
-        "icon-image": ["concat", "road_", ["get", "ref_length"]],
+        "icon-image": "mx-shield-generic",
         "icon-optional": false,
         "icon-rotation-alignment": "viewport",
         "icon-size": SHIELD_ICON_SIZE,

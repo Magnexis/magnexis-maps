@@ -10,6 +10,8 @@ import {
   CircleDot,
   Footprints,
   GripVertical,
+  Loader2,
+  MapPin,
   Navigation2,
   ParkingCircle,
   Plus,
@@ -86,6 +88,130 @@ const MODES: {
 ];
 
 const MAX_STOPS = MAX_ROUTE_STOPS;
+
+type RoutePointInputProps = {
+  ariaLabel: string;
+  center: { lng: number; lat: number };
+  onChange: (value: string) => void;
+  onPick: (result: SearchResult) => void;
+  placeholder: string;
+  value: string;
+};
+
+/** Small, real-time place picker used directly inside the Go flow. */
+function RoutePointInput({
+  ariaLabel,
+  center,
+  onChange,
+  onPick,
+  placeholder,
+  value,
+}: RoutePointInputProps) {
+  const [hits, setHits] = useState<SearchResult[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [focused, setFocused] = useState(false);
+
+  useEffect(() => {
+    const query = value.trim();
+    if (query.length < 2) {
+      setHits([]);
+      setLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+    const timeout = window.setTimeout(() => {
+      setLoading(true);
+      void getApiClient()
+        .search({ q: query, lng: center.lng, lat: center.lat, limit: 5 })
+        .then(({ results }) => {
+          if (!cancelled) setHits(results);
+        })
+        .catch(() => {
+          if (!cancelled) setHits([]);
+        })
+        .finally(() => {
+          if (!cancelled) setLoading(false);
+        });
+    }, 220);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timeout);
+    };
+  }, [center.lat, center.lng, value]);
+
+  const choose = (result: SearchResult) => {
+    onChange(result.label);
+    setHits([]);
+    setFocused(false);
+    onPick(result);
+  };
+
+  return (
+    <div className="relative min-w-0 flex-1">
+      <Input
+        placeholder={placeholder}
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        onFocus={() => setFocused(true)}
+        onBlur={() => window.setTimeout(() => setFocused(false), 120)}
+        onKeyDown={(event) => {
+          if (event.key === "Enter" && hits[0]) {
+            event.preventDefault();
+            choose(hits[0]);
+          }
+        }}
+        aria-label={ariaLabel}
+        aria-busy={loading}
+        aria-autocomplete="list"
+        aria-expanded={focused && hits.length > 0}
+        className="min-w-0 pr-9"
+      />
+      {loading ? (
+        <Loader2
+          aria-hidden
+          size={15}
+          className="pointer-events-none absolute right-3 top-3 animate-spin text-[var(--mx-text-muted)]"
+        />
+      ) : null}
+      {focused && hits.length > 0 ? (
+        <div
+          role="listbox"
+          aria-label={`${ariaLabel} suggestions`}
+          className="absolute z-30 mt-1 max-h-60 w-full overflow-y-auto rounded-xl border border-[var(--mx-border)] bg-[var(--mx-surface)] p-1 shadow-xl"
+        >
+          {hits.map((result) => (
+            <button
+              key={result.id}
+              type="button"
+              role="option"
+              className="flex w-full items-start gap-2 rounded-lg px-2.5 py-2 text-left hover:bg-[var(--mx-surface-muted)]"
+              onMouseDown={(event) => event.preventDefault()}
+              onClick={() => choose(result)}
+            >
+              <MapPin
+                aria-hidden
+                size={15}
+                className="mt-0.5 shrink-0 text-[var(--mx-accent)]"
+              />
+              <span className="min-w-0">
+                <span className="block truncate text-sm font-medium">
+                  {result.label}
+                </span>
+                {result.address ? (
+                  <span className="block truncate text-xs text-[var(--mx-text-muted)]">
+                    {result.address}
+                  </span>
+                ) : null}
+              </span>
+            </button>
+          ))}
+        </div>
+      ) : null}
+    </div>
+  );
+}
 
 export function DirectionsPanel({
   hideHeader = false,
@@ -446,83 +572,78 @@ export function DirectionsPanel({
         <div>
           <h2 className="font-display text-lg font-semibold">Directions</h2>
           <p className="text-sm text-[var(--mx-text-muted)]">
-            Set A→B (optional stops) and get a real route polyline. Start
-            navigation when ready.
+            Choose a destination first, then confirm where you’re leaving from.
           </p>
         </div>
       ) : (
         <p className="text-xs text-[var(--mx-text-muted)]">
-          Pick a travel mode, then origin and destination. Congestion overlay is
-          under Layers when traffic tiles are configured.
+          Where do you want to go? Search a destination, then review your route.
         </p>
       )}
-
-      <div
-        role="group"
-        aria-label="Travel mode"
-        className="grid grid-cols-3 gap-1.5 rounded-xl border border-[var(--mx-border)] bg-[var(--mx-surface-2)]/50 p-1"
-      >
-        {MODES.map(({ mode, label, icon: Icon, hint }) => {
-          const active = directions.mode === mode;
-          return (
-            <button
-              key={mode}
-              type="button"
-              title={hint}
-              aria-pressed={active}
-              aria-label={`${label} — ${hint}`}
-              className={`flex flex-col items-center gap-0.5 rounded-lg px-2 py-2 text-xs font-medium transition ${
-                active
-                  ? "bg-[var(--mx-accent)] text-[var(--mx-accent-fg,white)] shadow-sm"
-                  : "text-[var(--mx-text-muted)] hover:bg-[var(--mx-surface-muted)] hover:text-[var(--mx-text)]"
-              }`}
-              onClick={() =>
-                setDirections({ mode, routes: [], selectedRouteIndex: 0 })
-              }
-            >
-              <Icon size={16} strokeWidth={active ? 2.25 : 1.75} />
-              <span>{label}</span>
-            </button>
-          );
-        })}
-      </div>
-
-      {/* Your location origin chip (Google Maps parity) */}
-      <div className="flex flex-wrap items-center gap-2">
-        <button
-          type="button"
-          aria-pressed={isYourLocation}
-          className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition ${
-            isYourLocation
-              ? "border-[var(--mx-accent)] bg-[color-mix(in_srgb,var(--mx-accent)_16%,transparent)] text-[var(--mx-text)]"
-              : "border-[var(--mx-border)] bg-[var(--mx-surface-2)] text-[var(--mx-text-muted)] hover:border-[var(--mx-accent)] hover:text-[var(--mx-text)]"
-          }`}
-          onClick={useYourLocationAsOrigin}
-        >
-          <CircleDot size={12} className="text-[var(--mx-accent)]" />
-          Your location
-        </button>
-        <span className="text-[11px] text-[var(--mx-text-muted)]">
-          as starting point
-        </span>
-      </div>
 
       <div className="flex gap-2">
         <div className="min-w-0 flex-1 space-y-2">
           <div className="flex gap-1.5">
-            <Input
-              placeholder="Choose starting point"
+            <RoutePointInput
+              placeholder="Where to?"
+              value={destQuery}
+              center={mapView.center}
+              ariaLabel="Route destination"
+              onChange={(value) => {
+                setDestQuery(value);
+                setSelectedSearch(null);
+                setSelectedPlace(null);
+                setDirections({
+                  destination: null,
+                  routes: [],
+                  selectedRouteIndex: 0,
+                });
+              }}
+              onPick={(result) => {
+                setSelectedSearch(result);
+                setSelectedPlace(null);
+                setDirections({
+                  destination: result,
+                  routes: [],
+                  selectedRouteIndex: 0,
+                  error: null,
+                });
+              }}
+            />
+            {destQuery || directions.destination ? (
+              <Button
+                size="icon"
+                variant="ghost"
+                className="h-10 w-10 shrink-0"
+                aria-label="Clear destination"
+                onClick={clearDestination}
+              >
+                <X size={14} />
+              </Button>
+            ) : null}
+          </div>
+          <div className="flex gap-1.5">
+            <RoutePointInput
+              placeholder="Starting point"
               value={originQuery}
-              onChange={(e) => {
-                setOriginQuery(e.target.value);
+              center={mapView.center}
+              ariaLabel="Route origin"
+              onChange={(value) => {
+                setOriginQuery(value);
                 setDirections({
                   origin: null,
                   routes: [],
                   selectedRouteIndex: 0,
                 });
               }}
-              aria-label="Route origin"
-              className="min-w-0 flex-1"
+              onPick={(result) => {
+                setDirections({
+                  origin: result,
+                  routes: [],
+                  selectedRouteIndex: 0,
+                  error: null,
+                });
+              }}
             />
             {originQuery || directions.origin ? (
               <Button
@@ -598,34 +719,6 @@ export function DirectionsPanel({
               </Button>
             </div>
           ))}
-          <div className="flex gap-1.5">
-            <Input
-              placeholder="Choose destination"
-              value={destQuery}
-              onChange={(e) => {
-                setDestQuery(e.target.value);
-                setSelectedSearch(null);
-                setDirections({
-                  destination: null,
-                  routes: [],
-                  selectedRouteIndex: 0,
-                });
-              }}
-              aria-label="Route destination"
-              className="min-w-0 flex-1"
-            />
-            {destQuery || directions.destination ? (
-              <Button
-                size="icon"
-                variant="ghost"
-                className="h-10 w-10 shrink-0"
-                aria-label="Clear destination"
-                onClick={clearDestination}
-              >
-                <X size={14} />
-              </Button>
-            ) : null}
-          </div>
         </div>
         <Button
           size="icon"
@@ -637,6 +730,56 @@ export function DirectionsPanel({
         >
           <ArrowUpDown size={16} />
         </Button>
+      </div>
+
+      {/* Destination first; keep origin and travel controls compact underneath. */}
+      <div className="flex flex-wrap items-center gap-2">
+        <button
+          type="button"
+          aria-pressed={isYourLocation}
+          className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition ${
+            isYourLocation
+              ? "border-[var(--mx-accent)] bg-[color-mix(in_srgb,var(--mx-accent)_16%,transparent)] text-[var(--mx-text)]"
+              : "border-[var(--mx-border)] bg-[var(--mx-surface-2)] text-[var(--mx-text-muted)] hover:border-[var(--mx-accent)] hover:text-[var(--mx-text)]"
+          }`}
+          onClick={useYourLocationAsOrigin}
+        >
+          <CircleDot size={12} className="text-[var(--mx-accent)]" />
+          Your location
+        </button>
+        <span className="text-[11px] text-[var(--mx-text-muted)]">
+          as starting point
+        </span>
+      </div>
+
+      <div
+        role="group"
+        aria-label="Travel mode"
+        className="grid grid-cols-3 gap-1.5 rounded-xl border border-[var(--mx-border)] bg-[var(--mx-surface-2)]/50 p-1"
+      >
+        {MODES.map(({ mode, label, icon: Icon, hint }) => {
+          const active = directions.mode === mode;
+          return (
+            <button
+              key={mode}
+              type="button"
+              title={hint}
+              aria-pressed={active}
+              aria-label={`${label} — ${hint}`}
+              className={`flex flex-col items-center gap-0.5 rounded-lg px-2 py-2 text-xs font-medium transition ${
+                active
+                  ? "bg-[var(--mx-accent)] text-[var(--mx-accent-fg,white)] shadow-sm"
+                  : "text-[var(--mx-text-muted)] hover:bg-[var(--mx-surface-muted)] hover:text-[var(--mx-text)]"
+              }`}
+              onClick={() =>
+                setDirections({ mode, routes: [], selectedRouteIndex: 0 })
+              }
+            >
+              <Icon size={16} strokeWidth={active ? 2.25 : 1.75} />
+              <span>{label}</span>
+            </button>
+          );
+        })}
       </div>
 
       {stopDrafts.length < MAX_STOPS ? (

@@ -274,7 +274,15 @@ export const useAppStore = create<AppState>((set, get) => ({
     persistPanelWidth(panelWidthPx);
     set({ panelWidthPx });
   },
-  openPanel: (panel) => set({ panel, sheetCollapsed: false }),
+  // A screen transition is exclusive: close street imagery before exposing a
+  // sheet/drawer so map overlays cannot pile up behind a new window.
+  openPanel: (panel) =>
+    set({
+      panel,
+      sheetCollapsed: false,
+      streetViewImageId: null,
+      streetViewError: null,
+    }),
   setMapView: (view) =>
     set((s) => ({ mapView: { ...s.mapView, ...view } })),
   setSearchQuery: (searchQuery) => set({ searchQuery }),

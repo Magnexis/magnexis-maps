@@ -11,7 +11,7 @@
 
 ## Configuration
 
-Build variables: `NEXT_PUBLIC_API_URL`, `NEXT_PUBLIC_SHARE_URL`, `NEXT_PUBLIC_PRIVACY_URL`, `NEXT_PUBLIC_SUPPORT_URL` use the origins above. The API base value is the origin, without `/api/v1`, because the typed client adds that prefix.
+Build variables: `NEXT_PUBLIC_SHARE_URL`, `NEXT_PUBLIC_PRIVACY_URL`, and `NEXT_PUBLIC_SUPPORT_URL` use the origins above. `NEXT_PUBLIC_API_URL` is optional for this Netlify deployment: when omitted, the browser uses the same-origin Function at `/api/v1`. Set it only for a separately hosted API; the value is the origin without `/api/v1`, because the typed client adds that prefix.
 
 Server-only variables: `DATABASE_URL`, a stable strong `JWT_SECRET`, `CORS_ORIGIN`, `GEOCODING_PROVIDER`, `ROUTING_PROVIDER`, and approved provider keys such as `TOMTOM_API_KEY`. Never put database/session/provider secrets into `NEXT_PUBLIC_*`. Use production-only Functions scope. Keep the same JWT secret across deploys to preserve sessions.
 

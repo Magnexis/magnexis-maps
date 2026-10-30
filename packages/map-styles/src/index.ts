@@ -65,7 +65,7 @@ export function resolveClientBasemapUrl(
     : OPENFREEMAP_STYLES.dark;
 }
 
-export const PRODUCT_VERSION = "1.4.0";
+export const PRODUCT_VERSION = "1.5.2";
 export const CHROMATIC_CODENAME = "Chromatic";
 
 export {
@@ -90,6 +90,8 @@ export { CHROMATIC_HIGH_CONTRAST as chromaticHighContrastTokens } from "./tokens
 export {
   parseRouteRef,
   classifyNetwork,
+  routeShieldSvg,
+  registerRouteShieldImages,
   shieldFromFeatureProps,
   applyRouteShieldLabelContrast,
   ensureRouteShieldLayers,
