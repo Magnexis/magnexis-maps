@@ -433,6 +433,33 @@ body {
   animation: mx-fade-up 280ms var(--mx-ease) both;
 }
 
+/* A restrained seasonal detail: the bat flaps while the Halloween note is open. */
+@keyframes mx-halloween-bat-flap {
+  0%,
+  100% {
+    transform: translateY(1px) rotate(-4deg) scaleX(0.9) scaleY(1.03);
+  }
+  45% {
+    transform: translateY(-2px) rotate(4deg) scaleX(1.11) scaleY(0.92);
+  }
+  70% {
+    transform: translateY(0) rotate(-1deg) scaleX(0.96) scaleY(1.01);
+  }
+}
+
+.mx-halloween-bat {
+  animation: mx-halloween-bat-flap 920ms ease-in-out infinite;
+  filter: drop-shadow(0 3px 5px rgba(0, 0, 0, 0.32));
+  transform-origin: center;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mx-halloween-bat {
+    animation: none;
+    transform: rotate(-2deg);
+  }
+}
+
 /* Floating search — primary product affordance over the map */
 .mx-search-pill {
   border-color: color-mix(in srgb, var(--mx-border) 70%, transparent) !important;

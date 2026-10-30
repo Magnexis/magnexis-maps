@@ -287,7 +287,12 @@ export function HorizonChrome() {
                 className="absolute left-0 top-[calc(100%+0.55rem)] z-50 w-[min(17rem,calc(100vw-1.5rem))] overflow-hidden rounded-2xl border border-orange-300/30 bg-[color-mix(in_srgb,var(--mx-surface)_88%,#2e1065)] p-3.5 text-left shadow-[var(--mx-shadow-float)] backdrop-blur-xl"
               >
                 <div className="flex items-start gap-3">
-                  <span className="mt-0.5 text-2xl" aria-hidden>🦇</span>
+                  <span
+                    className="mx-halloween-bat mt-0.5 inline-grid h-8 w-9 shrink-0 place-items-center text-2xl"
+                    aria-hidden
+                  >
+                    🦇
+                  </span>
                   <div className="min-w-0">
                     <p className="font-display text-sm font-semibold tracking-tight text-orange-100">
                       Happy Halloween
