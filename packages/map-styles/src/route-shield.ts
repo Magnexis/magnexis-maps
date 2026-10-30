@@ -186,13 +186,13 @@ const SHIELD_ICON_SIZE: unknown[] = [
   ["linear"],
   ["zoom"],
   7,
-  0.9,
+  1.12,
   10,
-  1.02,
+  1.26,
   14,
-  1.14,
+  1.4,
   17,
-  1.2,
+  1.48,
 ];
 
 const SHIELD_TEXT_SIZE: unknown[] = [
@@ -200,11 +200,11 @@ const SHIELD_TEXT_SIZE: unknown[] = [
   ["linear"],
   ["zoom"],
   7,
-  11,
   12,
-  12.5,
-  16,
+  12,
   14,
+  16,
+  15.5,
 ];
 
 /**

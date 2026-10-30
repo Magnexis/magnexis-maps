@@ -313,14 +313,15 @@ function ensureTrafficOverlay(map: Map) {
             ["linear"],
             ["zoom"],
             8,
-            0.75,
+            1.45,
             12,
-            1.5,
+            2.4,
             16,
-            2.75,
+            4.1,
           ],
-          "line-opacity": 0.48,
-          "line-dasharray": [2.2, 1.6],
+          // Solid, high-contrast strokes make the state visibly distinct from
+          // the basemap while retaining the provider's real congestion data.
+          "line-opacity": 0.86,
         },
         minzoom: 8,
       });
@@ -932,6 +933,7 @@ export function MapCanvas() {
     setMapView,
     selectedSearch,
     selectedPlace,
+    sheetCollapsed,
     searchResults,
     directions,
     layers,
@@ -1773,6 +1775,9 @@ export function MapCanvas() {
       );
     }
     const trafficVis = layers.traffic ? "visible" : "none";
+    // A traffic toggle can happen while a basemap is changing. Re-attach the
+    // real source/layer here so a valid click never becomes a silent no-op.
+    if (layers.traffic) ensureTrafficOverlay(map);
     if (map.getLayer("mx-traffic-flow")) {
       map.setLayoutProperty("mx-traffic-flow", "visibility", trafficVis);
     }
@@ -1979,7 +1984,9 @@ export function MapCanvas() {
       <div ref={containerRef} className="h-full w-full" />
       <MapMeasureRuler />
       <DroppedPinCard
-        pin={droppedPin}
+        // A map peek and an application sheet are mutually exclusive. The pin
+        // remains on the map, but its card yields to Directions/Search/etc.
+        pin={sheetCollapsed ? droppedPin : null}
         onClose={clearDroppedPin}
         onDirections={() => {
           if (!droppedPin) return;

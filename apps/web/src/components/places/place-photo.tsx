@@ -63,9 +63,12 @@ export function PlacePhoto({
   if (!url) {
     return (
       <div
-        className={`flex w-full items-center justify-center rounded-xl border border-dashed border-[var(--mx-border)] bg-[var(--mx-surface-2)]/60 px-3 text-center text-[11px] text-[var(--mx-text-muted)] ${height} ${className}`}
+        className={`flex w-full items-center justify-center rounded-xl border border-dashed border-[var(--mx-border)] bg-[var(--mx-surface-2)]/60 px-3 text-center text-[11px] text-[var(--mx-text-muted)] ${
+          variant === "compact" ? "h-16" : "h-28"
+        } ${className}`}
+        role="status"
       >
-        No photo nearby
+        Street imagery is unavailable near this point
       </div>
     );
   }

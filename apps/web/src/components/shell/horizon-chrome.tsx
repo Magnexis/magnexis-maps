@@ -410,12 +410,13 @@ export function HorizonChrome() {
         </div>
       </div>
 
-      {/* Settings drawer — kept mounted for slide open/close */}
-      <div
-        className="pointer-events-none absolute inset-0 z-30"
-        aria-hidden={!settingsOpen}
-        inert={!settingsOpen ? true : undefined}
-      >
+      {/*
+        Only one overlay may exist at a time. Keeping closed dialogs mounted made
+        assistive tech (and some browsers during rapid panel changes) retain stale
+        screens, which could look like cards stacking over one another.
+      */}
+      {settingsOpen ? (
+        <div className="pointer-events-none absolute inset-0 z-30">
         <button
           type="button"
           className={`absolute inset-0 bg-[color-mix(in_srgb,var(--mx-bg)_55%,transparent)] backdrop-blur-[2px] mx-scrim ${
@@ -428,14 +429,9 @@ export function HorizonChrome() {
         <aside
           id="mx-settings-drawer"
           role="dialog"
-          aria-modal={settingsOpen}
+          aria-modal
           aria-labelledby="mx-settings-title"
-          aria-hidden={!settingsOpen}
-          className={`absolute inset-y-0 left-0 flex w-[min(100%,22rem)] flex-col border-r border-[var(--mx-border)] bg-[var(--mx-surface)] pt-[var(--mx-safe-t)] shadow-[var(--mx-shadow-float)] mx-drawer sm:w-[min(100%,24rem)] md:w-[min(100%,26rem)] lg:w-[min(100%,28rem)] ${
-            settingsOpen
-              ? "mx-drawer-open pointer-events-auto"
-              : "pointer-events-none"
-          }`}
+          className="absolute inset-y-0 left-0 flex w-[min(100%,22rem)] flex-col border-r border-[var(--mx-border)] bg-[var(--mx-surface)] pt-[var(--mx-safe-t)] shadow-[var(--mx-shadow-float)] mx-drawer mx-drawer-open pointer-events-auto sm:w-[min(100%,24rem)] md:w-[min(100%,26rem)] lg:w-[min(100%,28rem)]"
         >
           <div className="flex shrink-0 items-center justify-between gap-3 border-b border-[var(--mx-border)] px-4 py-3 sm:px-5">
             <div className="min-w-0">
@@ -464,40 +460,35 @@ export function HorizonChrome() {
             <SettingsPanel />
           </div>
         </aside>
-      </div>
+        </div>
+      ) : null}
 
       {/*
-        Unified content screen — kept mounted for slide open/close.
+        Unified content screen — mounted only for the active surface.
         Phone: nearly full frame above the dock (+ safe area).
         Desktop: left column capped width; same header + body.
       */}
-      <div
-        className="pointer-events-none absolute inset-x-0 bottom-0 top-[var(--mx-top-stack)] z-[25]"
-        aria-hidden={!sheetOpen}
-      >
+      {sheetOpen ? (
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 top-[var(--mx-top-stack)] z-[25]">
         <button
           type="button"
-          className={`absolute inset-0 bg-[color-mix(in_srgb,var(--mx-bg)_35%,transparent)] mx-scrim md:bg-transparent ${
-            sheetOpen ? "mx-scrim-open md:pointer-events-none" : ""
-          }`}
+          className="absolute inset-0 bg-[color-mix(in_srgb,var(--mx-bg)_35%,transparent)] mx-scrim mx-scrim-open md:pointer-events-none md:bg-transparent"
           aria-label="Close screen"
-          tabIndex={sheetOpen ? 0 : -1}
+          tabIndex={0}
           onClick={closePanel}
         />
         <section
           role="dialog"
-          aria-modal={sheetOpen}
+          aria-modal
           aria-label={PANEL_TITLE[panel]}
-          className={`absolute inset-x-0 bottom-[var(--mx-dock-stack)] top-0 flex flex-col px-2 sm:px-3 md:inset-x-auto md:left-4 md:top-0 md:px-0 lg:left-5 xl:left-6 mx-sheet ${
-            sheetOpen ? "mx-sheet-open" : ""
-          }`}
+          className="absolute inset-x-0 bottom-[var(--mx-dock-stack)] top-0 flex flex-col px-2 sm:px-3 md:inset-x-auto md:left-4 md:top-0 md:px-0 lg:left-5 xl:left-6 mx-sheet mx-sheet-open"
           style={
             {
               ["--mx-panel-width" as string]: `${panelWidthPx}px`,
             } as CSSProperties
           }
         >
-          <Panel className="relative flex min-h-0 flex-1 flex-col overflow-hidden !rounded-2xl bg-[var(--mx-surface)] shadow-[var(--mx-shadow-float)] md:!rounded-[1.25rem] md:w-[min(100%-2rem,var(--mx-panel-width,var(--mx-panel-max,22rem)))] lg:w-[min(100%-2.5rem,var(--mx-panel-width,26rem))] xl:w-[min(100%-3rem,var(--mx-panel-width,28rem))]">
+          <Panel className="relative flex min-h-0 flex-1 flex-col overflow-hidden !rounded-2xl !bg-[color-mix(in_srgb,var(--mx-surface)_96%,#0b1020)] shadow-[var(--mx-shadow-float)] md:!rounded-[1.25rem] md:w-[min(100%-2rem,var(--mx-panel-width,var(--mx-panel-max,22rem)))] lg:w-[min(100%-2.5rem,var(--mx-panel-width,26rem))] xl:w-[min(100%-3rem,var(--mx-panel-width,28rem))]">
             <div className="flex shrink-0 items-center justify-between gap-3 border-b border-[var(--mx-border)] px-4 py-3.5 sm:px-5">
               <h2 className="min-w-0 truncate font-display text-base font-semibold tracking-tight md:text-[1.05rem]">
                 {PANEL_TITLE[panel]}
@@ -527,7 +518,8 @@ export function HorizonChrome() {
             </button>
           </Panel>
         </section>
-      </div>
+        </div>
+      ) : null}
 
       {/* Map utilities — same controls all sizes; 44px targets on phone */}
       <div
@@ -762,13 +754,13 @@ export function HorizonChrome() {
 
       {/* Status strip — tap opens the active route when one exists */}
       <div
-        className="pointer-events-none absolute inset-x-0 z-10 flex justify-center px-3 md:justify-start md:pl-[max(1rem,var(--mx-safe-l))] lg:pl-5"
+        className="pointer-events-none absolute inset-x-0 z-10 flex justify-start px-[max(0.75rem,var(--mx-safe-l))]"
         style={{ bottom: "calc(var(--mx-status-stack) + 1rem)" }}
       >
         {tripPending || activeRoute ? (
           <button
             type="button"
-            className="pointer-events-auto max-w-[min(100%,22rem)] truncate rounded-full border border-[var(--mx-accent)] bg-[color-mix(in_srgb,var(--mx-accent)_16%,var(--mx-surface-glass))] px-3.5 py-1.5 text-left text-[10px] font-semibold tabular-nums text-[var(--mx-text)] shadow-[var(--mx-shadow-soft)] backdrop-blur-md sm:max-w-none sm:text-[11px] md:ml-[4.75rem] md:max-w-sm lg:ml-24"
+            className="pointer-events-auto max-w-[min(100%,22rem)] truncate rounded-full border border-[var(--mx-accent)] bg-[color-mix(in_srgb,var(--mx-accent)_16%,var(--mx-surface-glass))] px-3.5 py-1.5 text-left text-[10px] font-semibold tabular-nums text-[var(--mx-text)] shadow-[var(--mx-shadow-soft)] backdrop-blur-md sm:max-w-sm sm:text-[11px]"
             onClick={() => {
               if (activeRoute) {
                 startNavigation();
@@ -791,7 +783,7 @@ export function HorizonChrome() {
               : "Route in progress · tap to open Go"}
           </button>
         ) : (
-          <div className="max-w-[min(100%,22rem)] truncate rounded-full border border-[var(--mx-border)] bg-[var(--mx-surface-glass)] px-3.5 py-1.5 text-[10px] font-medium tabular-nums text-[var(--mx-text)] shadow-[var(--mx-shadow-soft)] backdrop-blur-md sm:max-w-none sm:text-[11px] md:ml-[4.75rem] md:max-w-sm lg:ml-24">
+          <div className="max-w-[min(100%,22rem)] truncate rounded-full border border-[var(--mx-border)] bg-[var(--mx-surface-glass)] px-3.5 py-1.5 text-[10px] font-medium tabular-nums text-[var(--mx-text)] shadow-[var(--mx-shadow-soft)] backdrop-blur-md sm:max-w-sm sm:text-[11px]">
             Explore the map · Search above or tap Go
           </div>
         )}
@@ -820,11 +812,11 @@ export function HorizonChrome() {
         <SelectedPlaceCard place={selectedPlace} search={selectedSearch} />
       ) : null}
 
-      {/* Required data credits — compact and centered at the base of the map. */}
+      {/* Required data credits — separate from the dock and route status. */}
       <p
-        className="pointer-events-none absolute inset-x-0 z-10 flex justify-center px-3 text-center text-[9px] leading-snug text-[var(--mx-text-muted)] opacity-70 sm:text-[10px]"
+        className="pointer-events-none absolute bottom-0 right-[max(0.75rem,var(--mx-safe-r))] z-10 max-w-[calc(100%-1.5rem)] text-right text-[9px] leading-snug text-[var(--mx-text-muted)] opacity-70 sm:text-[10px]"
         style={{
-          bottom: "calc(var(--mx-dock-stack) + 0.2rem)",
+          bottom: "calc(var(--mx-dock-stack) + 0.35rem)",
         }}
       >
         ©{" "}
