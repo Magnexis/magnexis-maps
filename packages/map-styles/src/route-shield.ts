@@ -336,9 +336,13 @@ export type RouteShieldMapLike = {
   addLayer?: (layer: any, beforeId?: string) => unknown;
   /** MapLibre dynamic image support for generated vector shields. */
   hasImage?: (id: string) => boolean;
+  // `unknown` here makes the method parameter contravariant, rejecting
+  // MapLibre's concrete image union during Next.js' strict production build.
+  // This is a boundary adapter; callers still pass generated ImageData only.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   addImage?: (
     id: string,
-    image: unknown,
+    image: any,
     options?: { pixelRatio?: number },
   ) => void;
   /** Move a layer before `beforeId`, or to the top when omitted. */

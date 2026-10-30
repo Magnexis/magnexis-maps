@@ -267,10 +267,10 @@ export function MapMeasureRuler() {
 
   return (
     <>
-      {/* Bottom-left: compact map scale + slim ruler toggle */}
+      {/* Upper-left keeps measuring clear of the bottom dock, status, and credits. */}
       <div
         className="pointer-events-none absolute left-3 z-20 flex items-end gap-1.5 sm:left-4"
-        style={{ bottom: "var(--mx-measure-stack)" }}
+        style={{ top: "calc(var(--mx-top-stack) + 0.65rem)" }}
       >
         <div
           className={`mx-scale-ruler pointer-events-none flex min-h-8 flex-col justify-end ${

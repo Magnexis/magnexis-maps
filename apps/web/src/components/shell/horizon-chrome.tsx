@@ -115,6 +115,7 @@ export function HorizonChrome() {
   const navigationActive = useAppStore((s) => s.navigationActive);
   const [locationPending, setLocationPending] = useState(false);
   const [locationError, setLocationError] = useState<string | null>(null);
+  const [halloweenOpen, setHalloweenOpen] = useState(false);
   const liveCamera = useLiveMapCamera();
   const buildings3d = Boolean(settings.buildings3d);
   const searchRef = useRef<HTMLInputElement>(null);
@@ -265,6 +266,48 @@ export function HorizonChrome() {
               className="drop-shadow-[0_2px_8px_rgba(0,0,0,0.35)] [&>div]:hidden sm:[&>div]:block"
             />
           </button>
+
+          <div className="relative shrink-0">
+            <Button
+              size="icon"
+              variant="glass"
+              className="h-11 w-11 !rounded-full border border-orange-300/40 bg-[linear-gradient(145deg,rgba(255,130,35,.28),rgba(88,28,135,.42))] text-base shadow-[0_6px_20px_rgba(124,45,18,.24)] hover:bg-[linear-gradient(145deg,rgba(255,150,45,.36),rgba(107,33,168,.52))] sm:h-10 sm:w-10"
+              aria-label="Open Halloween message"
+              aria-expanded={halloweenOpen}
+              aria-controls="mx-halloween-message"
+              onClick={() => setHalloweenOpen((open) => !open)}
+            >
+              <span aria-hidden>🎃</span>
+            </Button>
+            {halloweenOpen ? (
+              <div
+                id="mx-halloween-message"
+                role="dialog"
+                aria-label="Halloween message"
+                className="absolute left-0 top-[calc(100%+0.55rem)] z-50 w-[min(17rem,calc(100vw-1.5rem))] overflow-hidden rounded-2xl border border-orange-300/30 bg-[color-mix(in_srgb,var(--mx-surface)_88%,#2e1065)] p-3.5 text-left shadow-[var(--mx-shadow-float)] backdrop-blur-xl"
+              >
+                <div className="flex items-start gap-3">
+                  <span className="mt-0.5 text-2xl" aria-hidden>🦇</span>
+                  <div className="min-w-0">
+                    <p className="font-display text-sm font-semibold tracking-tight text-orange-100">
+                      Happy Halloween
+                    </p>
+                    <p className="mt-1 text-xs leading-relaxed text-[var(--mx-text-muted)]">
+                      A little night-flight for every route. Keep an eye on the road and enjoy the map after dark.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    className="-mr-1 -mt-1 grid h-7 w-7 shrink-0 place-items-center rounded-full text-[var(--mx-text-muted)] hover:bg-white/10 hover:text-[var(--mx-text)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--mx-ring)]"
+                    aria-label="Close Halloween message"
+                    onClick={() => setHalloweenOpen(false)}
+                  >
+                    <X size={14} />
+                  </button>
+                </div>
+              </div>
+            ) : null}
+          </div>
 
           <Panel className="mx-search-pill flex min-w-0 flex-1 items-center gap-1.5 !rounded-full px-2.5 py-1 sm:gap-2 sm:px-3.5 sm:py-1.5 md:max-w-2xl lg:max-w-3xl">
             <Search
@@ -715,7 +758,7 @@ export function HorizonChrome() {
       {/* Status strip — tap opens the active route when one exists */}
       <div
         className="pointer-events-none absolute inset-x-0 z-10 flex justify-center px-3 md:justify-start md:pl-[max(1rem,var(--mx-safe-l))] lg:pl-5"
-        style={{ bottom: "var(--mx-status-stack)" }}
+        style={{ bottom: "calc(var(--mx-status-stack) + 1rem)" }}
       >
         {tripPending || activeRoute ? (
           <button
@@ -772,12 +815,11 @@ export function HorizonChrome() {
         <SelectedPlaceCard place={selectedPlace} search={selectedSearch} />
       ) : null}
 
-      {/* Required data credits — sits left of FAB column, above dock */}
+      {/* Required data credits — compact and centered at the base of the map. */}
       <p
-        className="pointer-events-none absolute z-10 max-w-[42vw] text-right text-[9px] leading-snug text-[var(--mx-text-muted)] opacity-65 sm:max-w-none sm:text-[10px] md:opacity-70"
+        className="pointer-events-none absolute inset-x-0 z-10 flex justify-center px-3 text-center text-[9px] leading-snug text-[var(--mx-text-muted)] opacity-70 sm:text-[10px]"
         style={{
-          bottom: "var(--mx-fab-stack)",
-          right: "max(3.5rem, calc(var(--mx-safe-r) + 3.25rem))",
+          bottom: "calc(var(--mx-dock-stack) + 0.2rem)",
         }}
       >
         ©{" "}
