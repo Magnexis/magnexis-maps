@@ -47,10 +47,6 @@
 	<string>LaunchScreen</string>
 	<key>UIMainStoryboardFile</key>
 	<string>Main</string>
-	<key>UIRequiredDeviceCapabilities</key>
-	<array>
-		<string>armv7</string>
-	</array>
 	<key>UISupportedInterfaceOrientations</key>
 	<array>
 		<string>UIInterfaceOrientationPortrait</string>
@@ -68,8 +64,6 @@
 	<true/>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>Show your position and provide directions when you choose Locate or start navigation. Magnexis Maps does not track location in the background.</string>
-	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
-	<string>Magnexis Maps uses foreground location for map positioning and directions. This version does not request Always access or background tracking.</string>
 	<key>CFBundleURLTypes</key>
 	<array>
 		<dict>

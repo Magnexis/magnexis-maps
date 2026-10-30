@@ -2,7 +2,7 @@
 
 ## Current status
 
-Native Xcode project and repeatable local frontend packaging are prepared in `apps/iphone`. The UI comes directly from the current web platform. Native compilation/signing and physical-device validation have not been performed on Windows. Do not submit the development bundle or describe this work as App Store approval.
+Native Xcode project and repeatable local frontend packaging are prepared in `apps/iphone`. The UI comes directly from the current web platform. The current `main` revision has passed the hosted macOS simulator workflow. A previous signed IPA was archived, validated, and submitted to App Store Connect by the manual TestFlight workflow; every new App Store candidate still needs its own fresh signed upload and Apple processing. Native physical-device validation is not performed on Windows. Do not describe this work as App Store approval.
 
 ## Submission blockers
 
@@ -15,7 +15,7 @@ Apple's [current SDK upload requirement](https://developer.apple.com/news/upcomi
 
 ## Prepared assets and configuration
 
-- Bundle identifier `com.magnexis.maps`, marketing version `1.4.0`, initial build `1`; increase build number per upload.
+- Bundle identifier `com.magnexis.maps`, marketing version `1.5.2`, initial build `1`; the CI archive overrides the build number with the monotonically increasing GitHub Actions run number.
 - iPhone target only; portrait and landscape retained. iPad support is not claimed.
 - Scene-based native application lifecycle from the Capacitor 8 template.
 - Official opaque 1024×1024 Magnexis icon and branded launch artwork.
@@ -33,6 +33,8 @@ Apple's [current SDK upload requirement](https://developer.apple.com/news/upcomi
 - Keywords: maps,navigation,places,directions,travel,walking,cycling
 - Description: “Explore places, discover nearby activity hotspots, keep local favorites, and plan driving, walking, or cycling routes with Magnexis Maps. Browse an interactive map, inspect place details, compare available routes, and follow foreground guidance with spoken instructions. Hotspots estimate activity from nearby public place density; they are not live foot-traffic data. Search, routing, traffic, and imagery availability depend on connected providers and regional coverage. Offline map downloads and background navigation are not included.”
 - Review notes draft: “Browsing and local favorites work without an account. Location is optional and requested by Locate/navigation. Use a stable public test origin and destination to verify routing. Account-specific review credentials must be provided by the owner if required. All provider features advertised in the final listing must be enabled on the review service.”
+
+The versioned [1.5.2 submission packet](releases/iphone-v1.5.2-app-store.md) contains the current listing copy, deterministic reviewer route, privacy reconciliation questions, screenshot plan, and owner-managed App Store Connect gates.
 
 ## Screenshot capture plan
 

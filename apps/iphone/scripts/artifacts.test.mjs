@@ -19,6 +19,8 @@ test("iPhone configuration does not enable remote shell hosting or background tr
   assert.doesNotMatch(config, /server\s*:/);
   assert.doesNotMatch(plist, /NSAllowsArbitraryLoads|UIBackgroundModes/);
   assert.match(plist, /NSLocationWhenInUseUsageDescription/);
+  assert.doesNotMatch(plist, /NSLocationAlwaysAndWhenInUseUsageDescription/);
+  assert.doesNotMatch(plist, /UIRequiredDeviceCapabilities/);
   assert.match(plist, /magnexis-maps/);
 });
 test("App Store icon is the official opaque 1024px PNG", async () => {

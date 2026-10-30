@@ -1,5 +1,18 @@
 # Changelog
 
+## 1.5.2 — Horizon release candidate
+
+### Map interaction and presentation
+- Prevent closed application surfaces from remaining mounted as hidden dialogs; only the active map screen can now exist, eliminating panel/card stacking during rapid transitions.
+- Strengthened live traffic rendering and re-attaches the real provider layer after a basemap change.
+- Improved street-imagery fallback: a rural place can select the closest real Mapillary photo within a modest local area while preserving an honest unavailable state where coverage does not exist.
+- Increased route-shield scale and label sizing for road readability; map credits and active-route status now keep separate bottom-right and bottom-left positions.
+
+### iPhone submission hardening
+- Removed an unused Always-location purpose string. The target requests foreground location only.
+- Removed the legacy `armv7` required-device capability so the App Store can evaluate compatibility from the target settings rather than an obsolete architecture declaration.
+- Added a versioned App Store submission packet and a release gate checklist for the owner-managed App Store Connect steps.
+
 ## 1.4.0 — Chromatic (in progress)
 
 ### Sign-in providers
