@@ -2,7 +2,7 @@
 
 export const PRODUCT_NAME = "Magnexis Maps";
 export const ORGANIZATION = "Magnexis LLC";
-export const PRODUCT_VERSION = "1.4.0";
+export const PRODUCT_VERSION = "1.5.2";
 
 export const BRAND_COLORS = {
   deepNavy: "#08111F",
