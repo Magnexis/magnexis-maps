@@ -4,7 +4,10 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { MagnexisApiError } from "@magnexis/api-client";
 import { getApiClient } from "@/lib/api";
-import { consumeGitLabOAuthCallback } from "@/lib/gitlab-oauth";
+import {
+  consumeGitLabOAuthCallback,
+  isNativeGitLabOAuthState,
+} from "@/lib/gitlab-oauth";
 
 export default function GitLabOAuthCallbackPage() {
   const router = useRouter();
@@ -14,6 +17,10 @@ export default function GitLabOAuthCallbackPage() {
     let active = true;
     async function finish() {
       try {
+        if (isNativeGitLabOAuthState(new URLSearchParams(window.location.search).get("state"))) {
+          window.location.replace(`magnexis-maps://auth/gitlab/callback${window.location.search}`);
+          return;
+        }
         const { code, redirectUri, returnPath } = consumeGitLabOAuthCallback(
           window.location.search,
         );

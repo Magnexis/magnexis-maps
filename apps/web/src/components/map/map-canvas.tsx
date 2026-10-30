@@ -1182,7 +1182,7 @@ export function MapCanvas() {
         });
         if (hits.length) return;
       }
-      // Street view layer on + no Mapillary hit → open Google/Mapillary at tap.
+      // Street view layer on → open Mapillary imagery at the tapped coordinate.
       if (useAppStore.getState().layers.streetView) {
         const { lng, lat } = e.lngLat;
         void openStreetViewAt(lng, lat).then((opened) => {

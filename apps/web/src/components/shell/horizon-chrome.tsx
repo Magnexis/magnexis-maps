@@ -398,7 +398,7 @@ export function HorizonChrome() {
                 Settings
               </h2>
               <p className="text-xs text-[var(--mx-text-muted)]">
-                Magnexis Horizon · v1.4.0
+                Magnexis Horizon · v1.5.2
               </p>
             </div>
             <Button

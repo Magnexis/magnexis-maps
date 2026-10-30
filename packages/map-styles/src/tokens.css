@@ -28,17 +28,37 @@
 }
 
 [data-theme="dark"] {
-  --mx-bg: #07111f;
-  --mx-surface: #101d2d;
-  --mx-surface-2: #172638;
-  --mx-surface-glass: rgba(16, 29, 45, 0.86);
-  --mx-text: #f7faff;
-  --mx-text-muted: #9eacc0;
-  --mx-border: rgba(158, 172, 192, 0.14);
-  --mx-border-strong: rgba(158, 172, 192, 0.28);
-  --mx-overlay: rgba(7, 17, 31, 0.55);
-  --mx-control: rgba(23, 38, 56, 0.94);
-  --mx-ring: rgba(26, 115, 232, 0.45);
+  /*
+   * October night: a restrained charcoal-plum base and ember accent. This
+   * intentionally reads as a refined seasonal variation, not a novelty skin.
+   */
+  --mx-bg: #100f16;
+  --mx-surface: #1a1721;
+  --mx-surface-2: #25202d;
+  --mx-surface-glass: rgba(26, 23, 33, 0.88);
+  --mx-text: #fbf8f4;
+  --mx-text-muted: #b7adbc;
+  --mx-border: rgba(224, 207, 221, 0.14);
+  --mx-border-strong: rgba(239, 187, 116, 0.3);
+  --mx-overlay: rgba(12, 10, 17, 0.62);
+  --mx-control: rgba(37, 32, 45, 0.95);
+  --mx-ring: rgba(232, 137, 65, 0.5);
+  --mx-accent: #e88941;
+  --mx-accent-2: #d5a5f2;
+  --mx-warning: #f2bd5f;
+  --mx-success: #72d3a1;
+  --mx-danger: #ee7d82;
+  --mx-shadow-float:
+    0 1px 2px rgba(0, 0, 0, 0.28),
+    0 12px 34px rgba(0, 0, 0, 0.4),
+    0 1px 0 rgba(255, 196, 126, 0.06) inset;
+  --mx-shadow-soft:
+    0 1px 2px rgba(0, 0, 0, 0.22),
+    0 5px 16px rgba(0, 0, 0, 0.28);
+  --mx-shadow-search:
+    0 1px 2px rgba(0, 0, 0, 0.26),
+    0 12px 36px rgba(0, 0, 0, 0.36),
+    0 1px 0 rgba(255, 196, 126, 0.08) inset;
 }
 
 [data-theme="light"] {

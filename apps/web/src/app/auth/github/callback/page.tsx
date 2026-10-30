@@ -4,7 +4,10 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { MagnexisApiError } from "@magnexis/api-client";
 import { getApiClient } from "@/lib/api";
-import { consumeGitHubOAuthCallback } from "@/lib/github-oauth";
+import {
+  consumeGitHubOAuthCallback,
+  isNativeGitHubOAuthState,
+} from "@/lib/github-oauth";
 
 export default function GitHubOAuthCallbackPage() {
   const router = useRouter();
@@ -14,6 +17,10 @@ export default function GitHubOAuthCallbackPage() {
     let active = true;
     async function finish() {
       try {
+        if (isNativeGitHubOAuthState(new URLSearchParams(window.location.search).get("state"))) {
+          window.location.replace(`magnexis-maps://auth/github/callback${window.location.search}`);
+          return;
+        }
         const { code, redirectUri, returnPath } = consumeGitHubOAuthCallback(
           window.location.search,
         );

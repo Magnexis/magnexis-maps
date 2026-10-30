@@ -10,7 +10,7 @@ test("native project bundles the privacy manifest as an Xcode resource", async (
   );
   assert.match(project, /PrivacyInfo\.xcprivacy in Resources/);
   assert.equal((project.match(/A1811E000000000000000001/g) ?? []).length, 2);
-  assert.match(project, /MARKETING_VERSION = 1\.4\.0/);
+  assert.match(project, /MARKETING_VERSION = 1\.5\.2/);
   assert.match(project, /TARGETED_DEVICE_FAMILY = 1;/);
 });
 test("iPhone configuration does not enable remote shell hosting or background tracking", async () => {

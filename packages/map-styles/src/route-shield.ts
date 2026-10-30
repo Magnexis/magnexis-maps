@@ -161,21 +161,21 @@ export function shieldFromFeatureProps(
 }
 
 /**
- * Compact Google-like shield sizing — small high-contrast plates, not oversized
- * badges. Sprite icons (~20–28px) stay readable without dominating locals.
+ * Distance-readable shield sizing. These retain realistic cartographic spacing
+ * while giving route references enough presence on a dark, pitched map.
  */
 const SHIELD_ICON_SIZE: unknown[] = [
   "interpolate",
   ["linear"],
   ["zoom"],
   7,
-  0.72,
+  0.9,
   10,
-  0.82,
+  1.02,
   14,
-  0.92,
+  1.14,
   17,
-  1.0,
+  1.2,
 ];
 
 const SHIELD_TEXT_SIZE: unknown[] = [
@@ -183,11 +183,11 @@ const SHIELD_TEXT_SIZE: unknown[] = [
   ["linear"],
   ["zoom"],
   7,
-  9,
+  11,
   12,
-  10.5,
+  12.5,
   16,
-  11.5,
+  14,
 ];
 
 /** MapLibre layout/paint hints for highway shield symbol layers */
@@ -208,7 +208,7 @@ export const ROUTE_SHIELD_LAYER_HINTS = {
     "icon-allow-overlap": true,
     "icon-ignore-placement": false,
     "symbol-placement": "line",
-    "symbol-spacing": 280,
+    "symbol-spacing": 340,
     "text-field": ["get", "number"],
     "text-size": SHIELD_TEXT_SIZE,
     "text-font": [...OFM_FONT_BOLD],
@@ -219,9 +219,9 @@ export const ROUTE_SHIELD_LAYER_HINTS = {
   paint: {
     "icon-opacity": 1,
     "text-color": "#FFFFFF",
-    "text-halo-color": "rgba(8, 17, 31, 0.85)",
-    "text-halo-width": 1.15,
-    "text-halo-blur": 0.15,
+    "text-halo-color": "rgba(5, 8, 14, 0.96)",
+    "text-halo-width": 1.45,
+    "text-halo-blur": 0.2,
   },
 } as const;
 
@@ -478,7 +478,7 @@ export function ensureRouteShieldLayers(map: RouteShieldMapLike): string[] {
         "icon-size": SHIELD_ICON_SIZE,
         "icon-allow-overlap": true,
         "symbol-placement": "line",
-        "symbol-spacing": 280,
+        "symbol-spacing": 340,
         "text-field": ["to-string", ["get", "ref"]],
         "text-font": [...OFM_FONT_BOLD],
         "text-rotation-alignment": "viewport",
@@ -490,9 +490,9 @@ export function ensureRouteShieldLayers(map: RouteShieldMapLike): string[] {
         "icon-opacity": 1,
         "text-opacity": 1,
         "text-color": "#FFFFFF",
-        "text-halo-color": "rgba(8, 17, 31, 0.85)",
-        "text-halo-width": 1.1,
-        "text-halo-blur": 0.15,
+        "text-halo-color": "rgba(5, 8, 14, 0.96)",
+        "text-halo-width": 1.45,
+        "text-halo-blur": 0.2,
       },
     },
     {
@@ -519,7 +519,7 @@ export function ensureRouteShieldLayers(map: RouteShieldMapLike): string[] {
         "icon-size": SHIELD_ICON_SIZE,
         "icon-allow-overlap": true,
         "symbol-placement": "line",
-        "symbol-spacing": 280,
+        "symbol-spacing": 340,
         "text-field": ["to-string", ["get", "ref"]],
         "text-font": [...OFM_FONT_BOLD],
         "text-rotation-alignment": "viewport",
@@ -531,9 +531,9 @@ export function ensureRouteShieldLayers(map: RouteShieldMapLike): string[] {
         "icon-opacity": 1,
         "text-opacity": 1,
         "text-color": "#08111F",
-        "text-halo-color": "rgba(255, 255, 255, 0.95)",
-        "text-halo-width": 1.2,
-        "text-halo-blur": 0.1,
+        "text-halo-color": "rgba(255, 255, 255, 0.98)",
+        "text-halo-width": 1.45,
+        "text-halo-blur": 0.2,
       },
     },
     {
@@ -562,7 +562,7 @@ export function ensureRouteShieldLayers(map: RouteShieldMapLike): string[] {
         "icon-size": SHIELD_ICON_SIZE,
         "icon-allow-overlap": true,
         "symbol-placement": "line",
-        "symbol-spacing": 280,
+        "symbol-spacing": 340,
         "text-field": ["to-string", ["get", "ref"]],
         "text-font": [...OFM_FONT_BOLD],
         "text-rotation-alignment": "viewport",
@@ -574,9 +574,9 @@ export function ensureRouteShieldLayers(map: RouteShieldMapLike): string[] {
         "icon-opacity": 1,
         "text-opacity": 1,
         "text-color": "#08111F",
-        "text-halo-color": "rgba(255, 255, 255, 0.95)",
-        "text-halo-width": 1.2,
-        "text-halo-blur": 0.1,
+        "text-halo-color": "rgba(255, 255, 255, 0.98)",
+        "text-halo-width": 1.45,
+        "text-halo-blur": 0.2,
       },
     },
   ];
@@ -596,7 +596,7 @@ export function ensureRouteShieldLayers(map: RouteShieldMapLike): string[] {
 
 /**
  * Punch up existing basemap shield layers (OpenFreeMap / OMT): full-opacity
- * compact plates, bold high-contrast digits. Does not invent refs.
+ * elevated plates, bold high-contrast digits. Does not invent refs.
  *
  * Uses OFM-served Noto Bold only — composite "Noto Sans Bold,Open Sans Bold"
  * 404s and blocks the entire vector tile from rendering.
@@ -627,13 +627,13 @@ export function applyRouteShieldLabelContrast(
             : "#08111F";
       const haloColor =
         isInterstateShield || (night && !isIconShield)
-          ? "rgba(8, 17, 31, 0.85)"
-          : "rgba(255, 255, 255, 0.95)";
+          ? "rgba(5, 8, 14, 0.96)"
+          : "rgba(255, 255, 255, 0.98)";
 
       map.setPaintProperty(layer.id, "text-color", textColor);
       map.setPaintProperty(layer.id, "text-halo-color", haloColor);
-      map.setPaintProperty(layer.id, "text-halo-width", 1.15);
-      map.setPaintProperty(layer.id, "text-halo-blur", 0.15);
+      map.setPaintProperty(layer.id, "text-halo-width", 1.45);
+      map.setPaintProperty(layer.id, "text-halo-blur", 0.2);
       map.setPaintProperty(layer.id, "text-opacity", 1);
       try {
         map.setPaintProperty(layer.id, "icon-opacity", 1);

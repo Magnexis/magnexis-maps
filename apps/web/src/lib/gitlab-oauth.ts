@@ -1,5 +1,10 @@
+import { Browser } from "@capacitor/browser";
+import { Capacitor } from "@capacitor/core";
+import { publicShareBase } from "./share-links";
+
 const STATE_KEY = "magnexis_gitlab_oauth_state";
 const RETURN_KEY = "magnexis_gitlab_oauth_return";
+const NATIVE_STATE_PREFIX = "native.";
 
 export function publicGitLabClientId(): string | null {
   const fromEnv = process.env.NEXT_PUBLIC_GITLAB_OAUTH_CLIENT_ID?.trim();
@@ -8,15 +13,29 @@ export function publicGitLabClientId(): string | null {
 
 export function gitlabRedirectUri(): string {
   if (typeof window === "undefined") return "";
+  if (Capacitor.isNativePlatform()) {
+    const publicBase = publicShareBase();
+    if (!publicBase) {
+      throw new Error("GitLab sign-in is not configured for the native app.");
+    }
+    return `${publicBase}/auth/gitlab/callback`;
+  }
   return `${window.location.origin}/auth/gitlab/callback`;
 }
 
-export function beginGitLabSignIn(clientId: string): void {
+export function isNativeGitLabOAuthState(state: string | null): boolean {
+  return Boolean(state?.startsWith(NATIVE_STATE_PREFIX));
+}
+
+export async function beginGitLabSignIn(clientId: string): Promise<void> {
   const state =
     typeof crypto !== "undefined" && "randomUUID" in crypto
       ? crypto.randomUUID()
       : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
-  sessionStorage.setItem(STATE_KEY, state);
+  const oauthState = Capacitor.isNativePlatform()
+    ? `${NATIVE_STATE_PREFIX}${state}`
+    : state;
+  sessionStorage.setItem(STATE_KEY, oauthState);
   sessionStorage.setItem(
     RETURN_KEY,
     `${window.location.pathname}${window.location.search}${window.location.hash}`,
@@ -26,9 +45,14 @@ export function beginGitLabSignIn(clientId: string): void {
     redirect_uri: gitlabRedirectUri(),
     response_type: "code",
     scope: "read_user",
-    state,
+    state: oauthState,
   });
-  window.location.assign(`https://gitlab.com/oauth/authorize?${params.toString()}`);
+  const authorizationUrl = `https://gitlab.com/oauth/authorize?${params.toString()}`;
+  if (Capacitor.isNativePlatform()) {
+    await Browser.open({ url: authorizationUrl });
+    return;
+  }
+  window.location.assign(authorizationUrl);
 }
 
 export function consumeGitLabOAuthCallback(search: string): {

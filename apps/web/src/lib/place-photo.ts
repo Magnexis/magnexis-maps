@@ -1,14 +1,11 @@
 /**
  * Resolve a real photo for a selected place (no invented placeholders).
  *
- * Priority (when Google is configured, order is configurable via
- * GOOGLE_PLACE_PHOTO_PRIORITY on the API — default `before`):
- * 1. Google Places photo (server proxy; key never in the browser)
- * 2. TomTom POI photo (when TOMTOM_API_KEY is set — Magnexis default path)
- * 3. Mapillary nearby street thumbnail (when NEXT_PUBLIC_MAPILLARY_ACCESS_TOKEN is set)
- * 4. Explicit place.photoUrl / properties image fields from the API
- * 5. Wikipedia/Wikimedia Commons geosearch thumbnail (free, no key)
- * 6. Google Street View Static (map_pin / last resort when Places miss)
+ * Priority:
+ * 1. TomTom POI photo (when TOMTOM_API_KEY is set — Magnexis default path)
+ * 2. Mapillary nearby street thumbnail (when NEXT_PUBLIC_MAPILLARY_ACCESS_TOKEN is set)
+ * 3. Explicit place.photoUrl / properties image fields from the API
+ * 4. Wikipedia/Wikimedia Commons geosearch thumbnail (free, no key)
  */
 
 import {
@@ -17,18 +14,11 @@ import {
   mapillaryConfigured,
 } from "@/lib/mapillary";
 import {
-  fetchGooglePlacePhotoJson,
-  fetchGoogleProviderStatus,
-  googleStreetViewMeta,
-} from "@/lib/google-maps";
-import {
   fetchTomTomPlacePhotoJson,
   fetchTomTomProviderStatus,
 } from "@/lib/tomtom-client";
 
 export type PlacePhotoSource =
-  | "google"
-  | "google_street_view"
   | "tomtom"
   | "mapillary"
   | "place"
@@ -93,25 +83,6 @@ function photoFromProperties(
   return null;
 }
 
-async function fetchGooglePlacesThumb(
-  lng: number,
-  lat: number,
-  name?: string | null,
-): Promise<PlacePhoto | null> {
-  try {
-    const hit = await fetchGooglePlacePhotoJson(lng, lat, name);
-    if (!hit?.url) return null;
-    return {
-      url: hit.url,
-      source: "google",
-      attribution: hit.attribution || "Google",
-      imageId: hit.placeId,
-    };
-  } catch {
-    return null;
-  }
-}
-
 async function fetchTomTomPlacesThumb(
   lng: number,
   lat: number,
@@ -127,25 +98,6 @@ async function fetchTomTomPlacesThumb(
       source: "tomtom",
       attribution: hit.attribution || "TomTom",
       imageId: hit.photoId ?? hit.placeId,
-    };
-  } catch {
-    return null;
-  }
-}
-
-async function fetchGoogleStreetViewThumb(
-  lng: number,
-  lat: number,
-): Promise<PlacePhoto | null> {
-  try {
-    const meta = await googleStreetViewMeta(lng, lat);
-    if (!meta.available || !meta.imageUrl) return null;
-    return {
-      url: meta.imageUrl,
-      source: "google_street_view",
-      attribution: meta.copyright
-        ? `Google Street View · ${meta.copyright}`
-        : "Google Street View",
     };
   } catch {
     return null;
@@ -325,8 +277,8 @@ async function fetchWikimediaThumb(
 export type PlacePhotoIntent = "place" | "map_pin";
 
 /**
- * Gather up to a few real photos from independent sources (Google, Mapillary,
- * listing, Wikimedia). Dedupes by URL. Never invents imagery.
+ * Gather up to a few real photos from independent sources. Dedupes by URL.
+ * Never invents imagery.
  */
 export async function resolvePlacePhotos(options: {
   lng: number;
@@ -338,25 +290,15 @@ export async function resolvePlacePhotos(options: {
 }): Promise<PlacePhoto[]> {
   const intent = options.intent ?? "place";
   const wantWikimedia = intent === "place";
-  // Dropped pins want imagery of *that* coordinate — Street View / Mapillary first.
+  // Dropped pins want imagery of *that* coordinate — Mapillary first.
   const pinExact = intent === "map_pin";
 
-  const googleStatus = await fetchGoogleProviderStatus();
-  const googleFirst =
-    googleStatus.configured && googleStatus.photoPriority === "before";
-
-  const [googlePlaces, tomtomPlaces, mapillary, wikimedia, streetView] =
+  const [tomtomPlaces, mapillary, wikimedia] =
     await Promise.all([
-      googleStatus.configured
-        ? fetchGooglePlacesThumb(options.lng, options.lat, options.name)
-        : Promise.resolve(null),
       fetchTomTomPlacesThumb(options.lng, options.lat, options.name),
       fetchMapillaryThumb(options.lng, options.lat),
       wantWikimedia
         ? fetchWikimediaThumb(options.lng, options.lat, options.name, 150)
-        : Promise.resolve(null),
-      googleStatus.configured
-        ? fetchGoogleStreetViewThumb(options.lng, options.lat)
         : Promise.resolve(null),
     ]);
 
@@ -371,17 +313,12 @@ export async function resolvePlacePhotos(options: {
 
   if (pinExact) {
     // Exact-at-point imagery for map taps / dropped pins.
-    push(streetView);
     push(mapillary);
-    if (googleFirst) push(googlePlaces);
     push(tomtomPlaces);
-    if (!googleFirst) push(googlePlaces);
   } else {
-    // Configurable Google ↔ Mapillary order; TomTom POI when keyed; listing / props; Wikipedia.
-    if (googleFirst) push(googlePlaces);
+    // TomTom POI when keyed, then Mapillary, listing / props, and Wikipedia.
     push(tomtomPlaces);
     push(mapillary);
-    if (!googleFirst) push(googlePlaces);
   }
 
   const direct = firstHttpUrl(options.photoUrl);
@@ -403,19 +340,6 @@ export async function resolvePlacePhotos(options: {
   }
 
   push(wikimedia);
-
-  // Street View Static fills remaining gaps for place cards.
-  if (
-    !pinExact &&
-    googleStatus.configured &&
-    !collected.some(
-      (p) => p.source === "google" || p.source === "google_street_view",
-    )
-  ) {
-    push(streetView);
-  } else if (!pinExact && collected.length === 0 && googleStatus.configured) {
-    push(streetView);
-  }
 
   return collected.slice(0, 4);
 }

@@ -21,6 +21,26 @@ import {
 
 type AuthProvider = "password" | "google" | "github" | "gitlab";
 
+function GitHubMark() {
+  return (
+    <svg aria-hidden="true" viewBox="0 0 24 24" className="h-5 w-5 fill-current">
+      <path d="M12 2C6.477 2 2 6.477 2 12c0 4.418 2.865 8.166 6.839 9.489.5.092.682-.217.682-.483 0-.237-.009-1.025-.013-1.86-2.782.604-3.369-1.18-3.369-1.18-.455-1.157-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.004.071 1.532 1.031 1.532 1.031.892 1.529 2.341 1.087 2.91.831.092-.646.349-1.087.635-1.337-2.22-.253-4.555-1.11-4.555-4.942 0-1.092.39-1.984 1.03-2.684-.104-.253-.446-1.27.098-2.647 0 0 .84-.269 2.75 1.025A9.564 9.564 0 0112 6.756c.85.004 1.705.115 2.504.337 1.909-1.294 2.748-1.025 2.748-1.025.546 1.377.203 2.394.1 2.647.64.7 1.028 1.592 1.028 2.684 0 3.841-2.339 4.686-4.566 4.935.359.31.678.92.678 1.855 0 1.34-.012 2.42-.012 2.75 0 .268.18.58.688.481A10.002 10.002 0 0022 12c0-5.523-4.477-10-10-10Z" />
+    </svg>
+  );
+}
+
+function GitLabMark() {
+  return (
+    <svg aria-hidden="true" viewBox="0 0 36 36" className="h-5 w-5">
+      <path fill="#FC6D26" d="m18 33.2 6.63-20.4H11.37L18 33.2Z" />
+      <path fill="#E24329" d="m18 33.2-6.63-20.4H2.08L18 33.2Z" />
+      <path fill="#FC6D26" d="m2.08 12.8 2.82-8.68a1.16 1.16 0 0 1 2.2 0l2.82 8.68H2.08Z" />
+      <path fill="#E24329" d="m26.08 12.8 2.82-8.68a1.16 1.16 0 0 1 2.2 0l2.82 8.68h-7.84Z" />
+      <path fill="#FCA326" d="m18 33.2 6.63-20.4h9.29L18 33.2Z" />
+    </svg>
+  );
+}
+
 function readStoredAuthProvider(): AuthProvider {
   const stored = window.localStorage.getItem("magnexis_auth_provider");
   if (stored === "google" || stored === "github" || stored === "gitlab") {
@@ -176,13 +196,13 @@ export function AccountPanel({ hideHeader = false }: { hideHeader?: boolean }) {
     }
   }
 
-  function signInWithGitHub() {
+  async function signInWithGitHub() {
     if (pending || !githubClientId) return;
     setPending("github");
     setError(null);
     setMessage(null);
     try {
-      beginGitHubSignIn(githubClientId);
+      await beginGitHubSignIn(githubClientId);
     } catch (failure) {
       setPending(null);
       setError(
@@ -193,13 +213,13 @@ export function AccountPanel({ hideHeader = false }: { hideHeader?: boolean }) {
     }
   }
 
-  function signInWithGitLab() {
+  async function signInWithGitLab() {
     if (pending || !gitlabClientId) return;
     setPending("gitlab");
     setError(null);
     setMessage(null);
     try {
-      beginGitLabSignIn(gitlabClientId);
+      await beginGitLabSignIn(gitlabClientId);
     } catch (failure) {
       setPending(null);
       setError(
@@ -546,29 +566,26 @@ export function AccountPanel({ hideHeader = false }: { hideHeader?: boolean }) {
               {githubClientId ? (
                 <Button
                   type="button"
-                  variant="secondary"
-                  className="w-full"
+                  className="w-full bg-[#24292f] text-white shadow-sm hover:bg-[#32383f] focus-visible:ring-[#0969da]"
                   disabled={Boolean(pending)}
                   aria-busy={pending === "github"}
                   onClick={signInWithGitHub}
                 >
-                  {pending === "github"
-                    ? "Redirecting to GitHub…"
-                    : "Continue with GitHub"}
+                  <GitHubMark />
+                  {pending === "github" ? "Redirecting…" : "Continue with GitHub"}
                 </Button>
               ) : null}
               {gitlabClientId ? (
                 <Button
                   type="button"
                   variant="secondary"
-                  className="w-full"
+                  className="w-full border-[#d1d5db] bg-white text-[#303030] shadow-sm hover:bg-[#f9fafb] focus-visible:ring-[#FC6D26] dark:border-[#5d6068] dark:bg-[#fff]"
                   disabled={Boolean(pending)}
                   aria-busy={pending === "gitlab"}
                   onClick={signInWithGitLab}
                 >
-                  {pending === "gitlab"
-                    ? "Redirecting to GitLab…"
-                    : "Continue with GitLab"}
+                  <GitLabMark />
+                  {pending === "gitlab" ? "Redirecting…" : "Continue with GitLab"}
                 </Button>
               ) : null}
             </>

@@ -60,10 +60,19 @@ export function incomingAppLink(raw: string): string | null {
     const url = new URL(raw);
     if (
       url.protocol !== "magnexis-maps:" ||
-      !["place", "route"].includes(url.hostname)
+      !["place", "route", "auth"].includes(url.hostname)
     )
       return null;
     const params = url.searchParams;
+    if (url.hostname === "auth") {
+      if (
+        !["/github/callback", "/gitlab/callback"].includes(url.pathname) ||
+        !params.get("state") ||
+        (!params.get("code") && !params.get("error"))
+      )
+        return null;
+      return `/auth${url.pathname}?${params.toString()}`;
+    }
     if (url.hostname === "place") {
       if (
         !params.get("q")?.trim() ||

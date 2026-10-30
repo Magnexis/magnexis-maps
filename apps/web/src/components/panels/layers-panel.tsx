@@ -5,7 +5,6 @@ import { getApiClient } from "@/lib/api";
 import { useAppStore } from "@/lib/store";
 import { resolveTrafficSource, trafficConfigured } from "@/lib/traffic";
 import { mapillaryConfigured } from "@/lib/mapillary";
-import { fetchGoogleProviderStatus } from "@/lib/google-maps";
 import { MapChoiceRow } from "@/components/ui/map-choice";
 
 type StyleInfo = {
@@ -25,13 +24,6 @@ export function LayersPanel({ hideHeader = false }: { hideHeader?: boolean }) {
     patchSettings,
   } = useAppStore();
   const [styles, setStyles] = useState<StyleInfo[]>([]);
-  const [googleConfigured, setGoogleConfigured] = useState(false);
-
-  useEffect(() => {
-    void fetchGoogleProviderStatus()
-      .then((d) => setGoogleConfigured(d.configured))
-      .catch(() => setGoogleConfigured(false));
-  }, []);
 
   useEffect(() => {
     void getApiClient()
@@ -57,7 +49,7 @@ export function LayersPanel({ hideHeader = false }: { hideHeader?: boolean }) {
       );
   }, []);
 
-  const streetViewAvailable = mapillaryConfigured() || googleConfigured;
+  const streetViewAvailable = mapillaryConfigured();
 
   return (
     <div className="space-y-4">
@@ -201,11 +193,7 @@ export function LayersPanel({ hideHeader = false }: { hideHeader?: boolean }) {
             selected={layers.streetView}
             title="Street view"
             description={
-              mapillaryConfigured()
-                ? `Mapillary coverage · click green dots${
-                    googleConfigured ? " · Google fallback" : ""
-                  }`
-                : "Google Street View · tap the map to open imagery"
+              "Mapillary coverage · click green dots"
             }
             onSelect={() => toggleLayer("streetView")}
           />
@@ -215,7 +203,7 @@ export function LayersPanel({ hideHeader = false }: { hideHeader?: boolean }) {
             selected={false}
             disabled
             title="Street view"
-            description="Needs Mapillary token and/or GOOGLE_MAPS_API_KEY on the API"
+            description="Needs a Mapillary access token"
             onSelect={() => undefined}
           />
         )}
@@ -224,14 +212,9 @@ export function LayersPanel({ hideHeader = false }: { hideHeader?: boolean }) {
             !trafficConfigured()
               ? "Traffic needs TOMTOM_API_KEY on the API (pnpm secrets:tomtom), Mapbox, or NEXT_PUBLIC_TRAFFIC_TILES_URL."
               : "Live traffic uses TomTom flow tiles via the Magnexis API proxy.",
-            !mapillaryConfigured() && !googleConfigured
-              ? "Street view needs NEXT_PUBLIC_MAPILLARY_ACCESS_TOKEN and/or GOOGLE_MAPS_API_KEY."
-              : !mapillaryConfigured()
-                ? "Street view uses Google Street View Static via the API proxy (Mapillary optional for coverage dots)."
-                : "Street view uses Mapillary community imagery (CC BY-SA).",
-            googleConfigured
-              ? "Google enrichment is on (Places photos + Street View Static)."
-              : "Optional: set GOOGLE_MAPS_API_KEY on the API for Places photos and Street View.",
+            !mapillaryConfigured()
+              ? "Street view needs NEXT_PUBLIC_MAPILLARY_ACCESS_TOKEN."
+              : "Street view uses Mapillary community imagery (CC BY-SA).",
             "Indoor maps are not available in this build.",
           ]
             .filter(Boolean)

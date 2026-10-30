@@ -24,12 +24,12 @@ describe("Magnexis Chromatic palettes", () => {
   it("uses slate highways on light; gold only at night", () => {
     // Standard mirrors Google light: muted slate majors, not gold
     expect(CHROMATIC_STANDARD.interstate.toUpperCase()).toBe("#7A8FA8");
-    expect(CHROMATIC_NIGHT.interstate.toUpperCase()).toBe("#F6C45A");
+    expect(CHROMATIC_NIGHT.interstate.toUpperCase()).toBe("#F4B95D");
     expect(CHROMATIC_STANDARD.interstate.toLowerCase()).not.toMatch(
       /#2563eb|#3188ff|#247bff|#1a73e8|#f5b942/,
     );
     expect(CHROMATIC_STANDARD.activeRoute.toUpperCase()).toBe("#1A73E8");
-    expect(CHROMATIC_NIGHT.activeRoute.toUpperCase()).toBe("#4D91FF");
+    expect(CHROMATIC_NIGHT.activeRoute.toUpperCase()).toBe("#65A6FF");
   });
 
   it("keeps night local roads brighter than the dark background", () => {
@@ -48,7 +48,7 @@ describe("Magnexis Chromatic palettes", () => {
     expect(paletteFor("navigation").activeRoute).toBeTruthy();
     expect(paletteFor("high-contrast").labelMajor).toBe("#000000");
     expect(paletteFor("standard").background).toBe("#EDEEF0");
-    expect(paletteFor("night").background).toBe("#101821");
+    expect(paletteFor("night").background).toBe("#14111A");
   });
 
   it("overrides OpenFreeMap dark black motorways with gold", () => {
@@ -68,9 +68,9 @@ describe("Magnexis Chromatic palettes", () => {
       },
     };
     const { adjusted, palette } = applyChromaticPaints(map, "night");
-    expect(palette.interstate).toBe("#F6C45A");
+    expect(palette.interstate).toBe("#F4B95D");
     expect(adjusted).toContain("highway_motorway_inner");
-    expect(paints["highway_motorway_inner"]?.["line-color"]).toBe("#F6C45A");
+    expect(paints["highway_motorway_inner"]?.["line-color"]).toBe("#F4B95D");
     expect(paints["highway_motorway_inner"]?.["line-opacity"]).toBe(1);
     expect(paints["highway_minor"]?.["line-color"]).toBe(CHROMATIC_NIGHT.residential);
     expect(adjusted).not.toContain("mx-route-line");

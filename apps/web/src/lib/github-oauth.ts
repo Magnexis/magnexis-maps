@@ -1,5 +1,10 @@
+import { Browser } from "@capacitor/browser";
+import { Capacitor } from "@capacitor/core";
+import { publicShareBase } from "./share-links";
+
 const STATE_KEY = "magnexis_github_oauth_state";
 const RETURN_KEY = "magnexis_github_oauth_return";
+const NATIVE_STATE_PREFIX = "native.";
 
 export function publicGitHubClientId(): string | null {
   const fromEnv = process.env.NEXT_PUBLIC_GITHUB_OAUTH_CLIENT_ID?.trim();
@@ -8,15 +13,29 @@ export function publicGitHubClientId(): string | null {
 
 export function githubRedirectUri(): string {
   if (typeof window === "undefined") return "";
+  if (Capacitor.isNativePlatform()) {
+    const publicBase = publicShareBase();
+    if (!publicBase) {
+      throw new Error("GitHub sign-in is not configured for the native app.");
+    }
+    return `${publicBase}/auth/github/callback`;
+  }
   return `${window.location.origin}/auth/github/callback`;
 }
 
-export function beginGitHubSignIn(clientId: string): void {
+export function isNativeGitHubOAuthState(state: string | null): boolean {
+  return Boolean(state?.startsWith(NATIVE_STATE_PREFIX));
+}
+
+export async function beginGitHubSignIn(clientId: string): Promise<void> {
   const state =
     typeof crypto !== "undefined" && "randomUUID" in crypto
       ? crypto.randomUUID()
       : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
-  sessionStorage.setItem(STATE_KEY, state);
+  const oauthState = Capacitor.isNativePlatform()
+    ? `${NATIVE_STATE_PREFIX}${state}`
+    : state;
+  sessionStorage.setItem(STATE_KEY, oauthState);
   sessionStorage.setItem(
     RETURN_KEY,
     `${window.location.pathname}${window.location.search}${window.location.hash}`,
@@ -25,12 +44,15 @@ export function beginGitHubSignIn(clientId: string): void {
     client_id: clientId,
     redirect_uri: githubRedirectUri(),
     scope: "read:user user:email",
-    state,
+    state: oauthState,
     allow_signup: "true",
   });
-  window.location.assign(
-    `https://github.com/login/oauth/authorize?${params.toString()}`,
-  );
+  const authorizationUrl = `https://github.com/login/oauth/authorize?${params.toString()}`;
+  if (Capacitor.isNativePlatform()) {
+    await Browser.open({ url: authorizationUrl });
+    return;
+  }
+  window.location.assign(authorizationUrl);
 }
 
 export function consumeGitHubOAuthCallback(search: string): {

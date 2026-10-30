@@ -20,8 +20,10 @@ export function NativePlatform() {
     };
     const open = (url: string) => {
       const target = incomingAppLink(url);
-      if (target && `${location.pathname}${location.search}` !== target)
+      if (target && `${location.pathname}${location.search}` !== target) {
+        void Browser.close().catch(unavailable);
         location.assign(target);
+      }
     };
     const unavailable = () =>
       console.warn("A native platform capability is unavailable.");

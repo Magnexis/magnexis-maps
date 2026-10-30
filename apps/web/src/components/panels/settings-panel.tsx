@@ -1,12 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import { SegmentedControl, Button } from "@magnexis/ui";
+import { Capacitor } from "@capacitor/core";
 import { clearRecentSearches, useAppStore } from "@/lib/store";
 import { DEFAULT_USER_SETTINGS } from "@magnexis/shared";
-import { trafficConfigured } from "@/lib/traffic";
-import { mapillaryConfigured } from "@/lib/mapillary";
-import { fetchGoogleProviderStatus } from "@/lib/google-maps";
 
 export function SettingsPanel() {
   const {
@@ -17,28 +14,7 @@ export function SettingsPanel() {
     setStyleId,
     recentSearches,
   } = useAppStore();
-  const [tomtomConfigured, setTomtomConfigured] = useState<boolean | null>(
-    null,
-  );
-  const [googleConfigured, setGoogleConfigured] = useState<boolean | null>(
-    null,
-  );
-
-  useEffect(() => {
-    const base = (
-      process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000"
-    ).replace(/\/$/, "");
-    void fetch(`${base}/api/v1/providers/tomtom/status`)
-      .then((r) => r.json())
-      .then((d: { configured?: boolean }) =>
-        setTomtomConfigured(Boolean(d.configured)),
-      )
-      .catch(() => setTomtomConfigured(false));
-    void fetchGoogleProviderStatus()
-      .then((d) => setGoogleConfigured(d.configured))
-      .catch(() => setGoogleConfigured(false));
-  }, []);
-
+  const isNativeApp = Capacitor.isNativePlatform();
   return (
     <div className="space-y-6">
       <section className="space-y-3">
@@ -238,52 +214,7 @@ export function SettingsPanel() {
         </div>
       </section>
 
-      <section className="space-y-3">
-        <h3 className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--mx-text-muted)]">
-          Providers
-        </h3>
-        <ul className="space-y-2 text-sm text-[var(--mx-text-muted)]">
-          <li>
-            TomTom (routing / search / traffic):{" "}
-            <span className="text-[var(--mx-text)]">
-              {tomtomConfigured == null
-                ? "checking…"
-                : tomtomConfigured
-                  ? "configured on API"
-                  : "not set"}
-            </span>
-          </li>
-          <li>
-            Live traffic overlay:{" "}
-            <span className="text-[var(--mx-text)]">
-              {trafficConfigured() ? "ready" : "off"}
-            </span>
-          </li>
-          <li>
-            Mapillary street view:{" "}
-            <span className="text-[var(--mx-text)]">
-              {mapillaryConfigured() ? "ready" : "off"}
-            </span>
-          </li>
-          <li>
-            Google enrichment (Places photos / Street View):{" "}
-            <span className="text-[var(--mx-text)]">
-              {googleConfigured == null
-                ? "checking…"
-                : googleConfigured
-                  ? "configured on API"
-                  : "not set"}
-            </span>
-          </li>
-        </ul>
-        <p className="text-[11px] leading-relaxed text-[var(--mx-text-muted)]">
-          Connected features depend on service availability and regional
-          coverage. Features without a configured provider remain unavailable;
-          map and place information always shows the available source data.
-        </p>
-      </section>
-
-      <section className="space-y-3">
+      {!isNativeApp ? <section className="space-y-3">
         <h3 className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--mx-text-muted)]">
           Keyboard
         </h3>
@@ -333,7 +264,7 @@ export function SettingsPanel() {
             — close panel / clear selection
           </li>
         </ul>
-      </section>
+      </section> : null}
 
       <section className="space-y-3">
         <h3 className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--mx-text-muted)]">

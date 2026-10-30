@@ -69,6 +69,23 @@ describe("native deep links", () => {
       "/?q=Park&lng=-72&lat=41",
     );
   });
+  it("accepts OAuth callbacks only for the registered providers", () => {
+    expect(
+      incomingAppLink(
+        "magnexis-maps://auth/github/callback?code=code&state=native.state",
+      ),
+    ).toBe("/auth/github/callback?code=code&state=native.state");
+    expect(
+      incomingAppLink(
+        "magnexis-maps://auth/gitlab/callback?error=access_denied&state=native.state",
+      ),
+    ).toBe("/auth/gitlab/callback?error=access_denied&state=native.state");
+    expect(
+      incomingAppLink(
+        "magnexis-maps://auth/other/callback?code=code&state=native.state",
+      ),
+    ).toBeNull();
+  });
   it("rejects other schemes, operations, and invalid coordinates", () => {
     for (const url of [
       "https://evil.test/place?q=Park&lng=0&lat=0",

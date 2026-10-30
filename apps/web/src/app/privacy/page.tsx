@@ -74,8 +74,8 @@ export default function PrivacyPage() {
         <p>
           Netlify hosts the website and API. Neon PostgreSQL stores account and
           contribution records. Netlify Forms processes support submissions.
-          Feature providers may include TomTom, Google Maps Platform, MapTiler,
-          OpenFreeMap, OpenStreetMap-based routing, and Mapillary; active
+          Feature providers may include TomTom, MapTiler, OpenFreeMap,
+          OpenStreetMap-based routing, and Mapillary; active
           providers and attribution depend on the feature. These services
           process network addresses and request information under their own
           policies. Third-party links open their own services.

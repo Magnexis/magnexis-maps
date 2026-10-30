@@ -90,11 +90,6 @@ type AppState = {
   };
   /** Active Mapillary image id for the street-level viewer (null = closed). */
   streetViewImageId: string | null;
-  /**
-   * Google Street View Static fallback when Mapillary misses
-   * (coords only — imagery loaded via API proxy).
-   */
-  streetViewGoogle: { lng: number; lat: number } | null;
   streetViewError: string | null;
   styleId: "standard" | "dark" | "terrain" | "satellite";
   directions: {
@@ -133,7 +128,6 @@ type AppState = {
   setUserLocation: (loc: UserLocation | null) => void;
   toggleLayer: (key: keyof AppState["layers"]) => void;
   setStreetViewImageId: (id: string | null) => void;
-  setStreetViewGoogle: (coords: { lng: number; lat: number } | null) => void;
   setStreetViewError: (error: string | null) => void;
   closeStreetView: () => void;
   setStyleId: (id: AppState["styleId"]) => void;
@@ -246,7 +240,6 @@ export const useAppStore = create<AppState>((set, get) => ({
     hotspots: true,
   },
   streetViewImageId: null,
-  streetViewGoogle: null,
   streetViewError: null,
   styleId: "dark",
   directions: {
@@ -342,20 +335,12 @@ export const useAppStore = create<AppState>((set, get) => ({
   setStreetViewImageId: (streetViewImageId) =>
     set({
       streetViewImageId,
-      streetViewGoogle: streetViewImageId ? null : get().streetViewGoogle,
-      streetViewError: null,
-    }),
-  setStreetViewGoogle: (streetViewGoogle) =>
-    set({
-      streetViewGoogle,
-      streetViewImageId: streetViewGoogle ? null : get().streetViewImageId,
       streetViewError: null,
     }),
   setStreetViewError: (streetViewError) => set({ streetViewError }),
   closeStreetView: () =>
     set({
       streetViewImageId: null,
-      streetViewGoogle: null,
       streetViewError: null,
     }),
   setStyleId: (styleId) => {
